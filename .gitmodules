@@ -4,3 +4,6 @@
 [submodule "external_libs/igraph"]
 	path = external_libs/igraph
 	url = https://github.com/igraph/igraph.git
+[submodule "external_libs/viecut"]
+	path = external_libs/viecut
+	url = https://github.com/VieCut/VieCut.git
