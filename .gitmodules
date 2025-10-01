@@ -1,0 +1,6 @@
+[submodule "external_libs/libleidenalg"]
+	path = external_libs/libleidenalg
+	url = https://github.com/vtraag/libleidenalg.git
+[submodule "external_libs/igraph"]
+	path = external_libs/igraph
+	url = https://github.com/igraph/igraph.git
