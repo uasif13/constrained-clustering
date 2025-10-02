@@ -51,7 +51,6 @@ else()
     #[[ Link internal libraries ]]
     add_library(internal_libs ${SOURCE_INTERNAL_LIBS})
     target_include_directories(internal_libs
-        PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/include
         PUBLIC ${CMAKE_SOURCE_DIR}/includes
         PUBLIC ${CMAKE_SOURCE_DIR}/src
         PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/VieCut/lib
