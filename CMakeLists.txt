@@ -14,6 +14,8 @@ else()
     find_package(igraph 0.10 CONFIG REQUIRED)
     find_package(libleidenalg 0.11 CONFIG REQUIRED)
     find_package(OpenMP REQUIRED)
+    find_package(MPI REQUIRED)
+    add_definitions(-DOMPI_SKIP_MPICXX)
 
     set(CONSTRAINED_CLUSTERING_MAJOR_VERSION 0)
     set(CONSTRAINED_CLUSTERING_MINOR_VERSION 1)
@@ -41,6 +43,7 @@ else()
         ${CMAKE_SOURCE_DIR}/src/mincut_only.cpp
         ${CMAKE_SOURCE_DIR}/src/mincut_custom.cpp
         ${CMAKE_SOURCE_DIR}/external_libs/VieCut/extlib/tlx/tlx/logger.cpp
+
     )
     #[[ CONSTANTS END ]]
 
@@ -55,10 +58,13 @@ else()
         PUBLIC ${CMAKE_SOURCE_DIR}/src
         PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/VieCut/lib
         PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/VieCut/extlib/tlx
-    )
+        PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/include
+        SYSTEM ${MPI_INCLUDE_PATH}
+    )   
     target_link_libraries(internal_libs PUBLIC igraph::igraph)
     target_link_libraries(internal_libs PUBLIC libleidenalg::libleidenalg)
     target_link_libraries(internal_libs PUBLIC OpenMP::OpenMP_CXX)
+    target_link_libraries(constrained_clustering PUBLIC ${MPI_C_LIBRARIES})
     target_link_libraries(constrained_clustering PUBLIC internal_libs)
 
     #[[ Link libraries ]]
