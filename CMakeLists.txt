@@ -70,6 +70,7 @@ else()
     #[[ Link libraries ]]
     add_subdirectory(libs)
     target_link_libraries(constrained_clustering PUBLIC external_libs)
+    add_definitions(-w)
 
     #[[ Link external libraries ]]
 endif("${CMAKE_BINARY_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")

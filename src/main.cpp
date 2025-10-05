@@ -91,6 +91,7 @@ int main(int argc, char* argv[]) {
     int nprocs;
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+    // printf("my_rank: %d nprocs: %d\n", my_rank, nprocs);
     if(main_program.is_subcommand_used(cm)) {
         std::string edgelist = cm.get<std::string>("--edgelist");
         std::string algorithm = cm.get<std::string>("--algorithm");
@@ -100,8 +101,10 @@ int main(int argc, char* argv[]) {
         std::string output_file = cm.get<std::string>("--output-file");
         std::string log_file = cm.get<std::string>("--log-file");
         int log_level = cm.get<int>("--log-level") - 1; // so that enum is cleaner
+        // printf("my_rank: %d create cm object\n", my_rank);
         ConstrainedClustering* cm = new CM(edgelist, algorithm, resolution, existing_clustering, num_processors, output_file, log_file, log_level, my_rank, nprocs);
         random_functions::setSeed(0);
+        // printf("my_rank: %d call main\n", my_rank);
         cm->main(my_rank, nprocs);
         delete cm;
     } else if(main_program.is_subcommand_used(mincut_only)) {
@@ -114,7 +117,7 @@ int main(int argc, char* argv[]) {
         ConnectednessCriterion connectedness_criterion = static_cast<ConnectednessCriterion>(mincut_only.get<int>("--connectedness-criterion"));
         ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level);
         random_functions::setSeed(0);
-        mincut_only->main();
+        mincut_only->main(my_rank, nprocs);
         delete mincut_only;
     }
     MPI_Finalize();
