@@ -41,6 +41,7 @@ else()
         ${CMAKE_SOURCE_DIR}/src/mincut_only.cpp
         ${CMAKE_SOURCE_DIR}/src/mincut_custom.cpp
         ${CMAKE_SOURCE_DIR}/external_libs/VieCut/extlib/tlx/tlx/logger.cpp
+        ${CMAKE_SOURCE_DIR}/external_libs/include
     )
     #[[ CONSTANTS END ]]
 
@@ -55,6 +56,7 @@ else()
         PUBLIC ${CMAKE_SOURCE_DIR}/src
         PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/VieCut/lib
         PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/VieCut/extlib/tlx
+        PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/include
     )
     target_link_libraries(internal_libs PUBLIC igraph::igraph)
     target_link_libraries(internal_libs PUBLIC libleidenalg::libleidenalg)
