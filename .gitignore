@@ -3,3 +3,4 @@ compile_commands.json
 constrained_clustering
 output.log
 output_clusters.tsv
+external_libs/

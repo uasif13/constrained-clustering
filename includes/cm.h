@@ -7,7 +7,7 @@ class CM : public ConstrainedClustering {
     public:
         CM(std::string edgelist, std::string algorithm, double clustering_parameter, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, int log_level) : ConstrainedClustering(edgelist, algorithm, clustering_parameter, existing_clustering, num_processors, output_file, log_file, log_level) {
         };
-        int main() override;
+        int main(int my_rank, int nprocs) override;
 
         static inline std::vector<std::vector<int>> RunClusterOnPartition(const igraph_t* graph, std::string algorithm, int seed, double clustering_parameter, std::vector<int>& partition) {
             std::vector<std::vector<int>> cluster_vectors;
@@ -22,7 +22,7 @@ class CM : public ConstrainedClustering {
             igraph_t induced_subgraph;
             igraph_induced_subgraph_map(graph, &induced_subgraph, igraph_vss_vector(&nodes_to_keep), IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH, NULL, &new_id_to_old_id_map);
             std::map<int, int> partition_map  = ConstrainedClustering::GetCommunities("", algorithm, seed, clustering_parameter, &induced_subgraph);
-            ConstrainedClustering::RemoveInterClusterEdges(&induced_subgraph, partition_map);
+            ConstrainedClustering::RemoveInterClusterEdgesArray(&induced_subgraph, partition_map);
             std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&induced_subgraph);
             for(size_t i = 0; i < connected_components_vector.size(); i ++) {
                 std::vector<int> translated_cluster_vector;

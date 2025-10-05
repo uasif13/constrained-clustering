@@ -1,6 +1,20 @@
 #include "cm.h"
+#include "mpi.h"
 
-int CM::main() {
+using namespace std;
+#define ROOT 0
+
+int * build_displacements(int* size_array, int nprocs) {
+    int * displacements;
+    displacements[nprocs];
+    displacements[0] = 0;
+    for (int i = 1; i < nprocs; i ++) {
+        displacements[i] = displacements[i-1] + size_array[i];
+    }
+    return displacements;
+}
+
+int CM::main(int my_rank, int nprocs) {
     /* std::random_device rd; */
     /* std::mt19937 rng{rd()}; */
     /* std::uniform_int_distribution<int> uni(0, 100000); */
@@ -21,17 +35,40 @@ int CM::main() {
     /* int before_mincut_number_of_clusters = -1; */
     int after_mincut_number_of_clusters = -2;
     int iter_count = 0;
+    ConstrainedClustering::initializeSlice(&graph, my_rank, nprocs);
+    igraph_vector_int_t rice_vec;
+    int * rice;
+    int * rice_agg;
+    int rice_agg_size;
+
+    int rice_size;
+    int * rice_size_arr;
+
+    int * rice_displacements;
+
+    rice_size_arr[nprocs];
 
     if(this->existing_clustering == "") {
         /* int seed = uni(rng); */
+        // not working
         int seed = 0;
         std::map<int, int> node_id_to_cluster_id_map = ConstrainedClustering::GetCommunities("", this->algorithm, seed, this->clustering_parameter, &graph);
-        ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_map);
+        rice = ConstrainedClustering::RemoveInterClusterEdgesArray(&graph, node_id_to_cluster_id_map);
     } else if(this->existing_clustering != "") {
         std::map<std::string, int> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMap(&graph);
         std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map, this->existing_clustering);
-        ConstrainedClustering::RemoveInterClusterEdges(&graph, new_node_id_to_cluster_id_map);
+        rice = ConstrainedClustering::RemoveInterClusterEdgesArray(&graph, new_node_id_to_cluster_id_map);
     }
+    if (my_rank == ROOT) {
+        rice_size = igraph_vector_int_size(&rice);
+        MPI_Gather(&rice_size, 1, MPI_INT, rice_size_arr, ROOT, MPI_COMM_WORLD);
+        rice_displacements = build_displacements(rice_size_arr, nprocs);
+        MPI_Gatherv(&rice, rice_size, MPI_INT, rice_agg, &rice_size, rice_displacements, MPI_INT, ROOT, MPI_COMM_WORLD );
+        rice_agg_size = nprocs-1+rice_size;
+    }
+    MPI_Bcast(&rice_agg_size, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
+    MPI_Bcast(rice_agg, rice_agg_size, MPI_INT, ROOT, MPI_COMM_WORLD);
+    printf("my_rank : %d rice_agg_size: %d \n", my_rank, rice_agg_size);
 
     /** SECTION Get Connected Components START **/
     std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
