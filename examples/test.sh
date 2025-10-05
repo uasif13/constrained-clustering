@@ -13,3 +13,4 @@
 # ./constrained_clustering CM --edgelist ./examples/connected_components_trivial_mincuts.tsv --algorithm leiden-cpm --resolution 0.2 --num-processors 1 --output-file ./output_clusters.tsv --log-file ./output.log --log-level 2
 # ./constrained_clustering CM --edgelist ./examples/connected_components_trivial_mincuts.tsv --algorithm leiden-cpm --resolution 0.2 --num-processors 1 --output-file ./output_clusters.tsv --log-file ./output.log --log-level 2
 ./constrained_clustering CM --edgelist ./examples/mincut_then_leiden.tsv --algorithm leiden-cpm --resolution 0.2 --num-processors 1 --output-file ./output_clusters.tsv --log-file ./output.log --log-level 2
+# ./constrained_clustering CM --edgelist ./examples/mincut_then_leiden.tsv  --existing-clustering ./examples/mtl_clusters.tsv --algorithm leiden-cpm --resolution 0.2 --num-processors 1 --output-file ./output_clusters.tsv --log-file ./output.log --log-level 2
