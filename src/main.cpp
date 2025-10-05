@@ -1,5 +1,5 @@
 #include <iostream>
-
+#include <mpi.h>
 #include "argparse.h"
 #include "constrained.h"
 #include "library.h"
@@ -84,6 +84,10 @@ int main(int argc, char* argv[]) {
         std::cerr << main_program;
         std::exit(1);
     }
+    int my_rank, nprocs;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_Comm_world, nprocs);
+    MPI_Comm_rank(MPI_Comm_world, my_rank);
 
     if(main_program.is_subcommand_used(cm)) {
         std::string edgelist = cm.get<std::string>("--edgelist");
@@ -94,9 +98,9 @@ int main(int argc, char* argv[]) {
         std::string output_file = cm.get<std::string>("--output-file");
         std::string log_file = cm.get<std::string>("--log-file");
         int log_level = cm.get<int>("--log-level") - 1; // so that enum is cleaner
-        ConstrainedClustering* cm = new CM(edgelist, algorithm, resolution, existing_clustering, num_processors, output_file, log_file, log_level);
+        ConstrainedClustering* cm = new CM(edgelist, algorithm, resolution, existing_clustering, num_processors, output_file, log_file, log_level, my_rank, nprocs);
         random_functions::setSeed(0);
-        cm->main();
+        cm->main(my_rank, nprocs);
         delete cm;
     } else if(main_program.is_subcommand_used(mincut_only)) {
         std::string edgelist = mincut_only.get<std::string>("--edgelist");

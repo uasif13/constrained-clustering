@@ -1,6 +1,7 @@
 #include "cm.h"
+#include <mpi.h>
 
-int CM::main() {
+int CM::main( int my_rank, int nprocs) {
     /* std::random_device rd; */
     /* std::mt19937 rng{rd()}; */
     /* std::uniform_int_distribution<int> uni(0, 100000); */
