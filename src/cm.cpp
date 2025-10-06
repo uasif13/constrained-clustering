@@ -227,7 +227,7 @@ int CM::main(int my_rank, int nprocs) {
 
 
     this->WriteToLogFile("Writing output to: " + this->output_file, Log::info);
-    this->WriteClusterQueue(CM::done_being_clustered_clusters, &graph);
+    this->WriteClusterQueue(CM::done_being_clustered_clusters, &graph, cc_start);
     igraph_destroy(&graph);
     return 0;
 }

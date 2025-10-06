@@ -25,10 +25,38 @@ void build_displacements_output_file(int * displacements, int* size_array, int n
     }
 }
 
-
 void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& cluster_queue, igraph_t* graph) {
     std::ofstream clustering_output(this->output_file);
     int current_cluster_id = 0;
+    this->WriteToLogFile("final clusters:", Log::debug);
+    int v_count = igraph_vcount(graph);
+    int node_id_arr[v_count];
+    int cluster_id_arr[v_count];
+    int index_count = 0;
+    int index_count_arr[nprocs];
+    int cluster_displacements[nprocs];
+    int node_cluster_id_agg_size;
+    while(!cluster_queue.empty()) {
+        std::vector<int> current_cluster = cluster_queue.front();
+        cluster_queue.pop();
+        output_vec(current_cluster);
+        this->WriteToLogFile("new cluster", Log::debug);
+        for(size_t i = 0; i < current_cluster.size(); i ++) {
+            this->WriteToLogFile(std::to_string(current_cluster[i]), Log::debug);
+            clustering_output << VAS(graph, "name", current_cluster[i]) << " " << current_cluster_id << '\n';
+            node_id_arr[index_count] = stoi(VAS(graph, "name", current_cluster[i]));
+            cluster_id_arr[index_count] = current_cluster_id;
+            index_count++;
+        }
+        current_cluster_id ++;
+    }
+    clustering_output.close();
+    
+}
+
+void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& cluster_queue, igraph_t* graph, int cluster_start) {
+    std::ofstream clustering_output(this->output_file);
+    int current_cluster_id = cluster_start;
     this->WriteToLogFile("final clusters:", Log::debug);
     int v_count = igraph_vcount(graph);
     int node_id_arr[v_count];

@@ -50,6 +50,8 @@ class ConstrainedClustering {
         void WritePartitionMap(std::map<int,int>& final_partition);
         void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph);
 
+        void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph, int cluster_start_index);
+
         int initializeSlice(igraph_t * graph){
             this -> vertex_count = igraph_vcount(graph);
             int my_work = vertex_count/nprocs;
