@@ -49,6 +49,7 @@ class CM : public ConstrainedClustering {
                     // done with work!
                     return;
                 }
+                // initially all nodes
                 igraph_vector_int_t nodes_to_keep;
                 igraph_vector_int_t new_id_to_old_id_vector_map;
                 igraph_vector_int_init(&nodes_to_keep, current_cluster.size());

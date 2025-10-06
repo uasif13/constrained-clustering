@@ -19,11 +19,18 @@ void output_arr(T * arr, int arr_size) {
     }
     cout << "\n";
 }
+template <typename T>
+void output_vec(std::vector<T> vec) {
+    for (auto item: vec) {
+        cout << item << " ";
+    }
+    cout << "\n";
+}
 
 void build_displacements(int * displacements, int* size_array, int nprocs) {
     displacements[0] = 0;
     for (int i = 1; i < nprocs; i ++) {
-        displacements[i] = displacements[i-1] + size_array[i];
+        displacements[i] = displacements[i-1] + size_array[i-1];
     }
 }
 
@@ -89,49 +96,49 @@ int CM::main(int my_rank, int nprocs) {
         ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_map);
     } else if(this->existing_clustering != "") {
         // non mpi
-        // std::map<std::string, int> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMap(&graph);
+        // std::map<std::string, int> original_to_new_id_map_nonmpi = ConstrainedClustering::GetOriginalToNewIdMap(&graph);
+        // output_map(original_to_new_id_map_nonmpi);
         // std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map, this->existing_clustering);
         // ConstrainedClustering::RemoveInterClusterEdges(&graph, new_node_id_to_cluster_id_map);
 
 
         // MPI
         // printf("my_rank: %d clustering data\n", my_rank);
-        std::map<std::string, int> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMapDistributed(&graph, start_vertex, end_vertex);
+        ConstrainedClustering::initializeSlice(&graph);
+
+        std::map<std::string, int> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMapDistributed(&graph);
         // printf("my_rank: %d read orig to new id map\n", my_rank);
         // printf("my_rank: %d clustering file %s\n",this -> existing_clustering);
-        ConstrainedClustering::initializeSlice(&graph, original_to_new_id_map);
-        output_map(original_to_new_id_map);
+        // output_map(original_to_new_id_map);
         std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map, this->existing_clustering);
 
-        
-        // std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunitiesDistributed(&graph, original_to_new_id_map, this->existing_clustering);
         // printf("my_rank: %d read communities\n", my_rank);
-        output_map(new_node_id_to_cluster_id_map);
+        // output_map(new_node_id_to_cluster_id_map);
         // get edges to delete
         // printf("my_rank: %d enter rice_distributed\n", my_rank);
-        // rice_vec = ConstrainedClustering::RemoveInterClusterEdgesDistributed(&graph, new_node_id_to_cluster_id_map);
-        ConstrainedClustering::RemoveInterClusterEdges(&graph, new_node_id_to_cluster_id_map);
+
+        rice_vec = ConstrainedClustering::RemoveInterClusterEdgesDistributed(&graph, new_node_id_to_cluster_id_map);
 
         // igraph_vector_int_print(&rice_vec);
-        // // aggregates edges to delete`
-        // rice_size = igraph_vector_int_size(&rice_vec);
-        // // printf("my_rank: %d rice_size: %d\n", my_rank, rice_size);
-        // MPI_Allgather(&rice_size, 1, MPI_INT, rice_size_arr, 1, MPI_INT, MPI_COMM_WORLD);
-        // // output_arr(rice_size_arr, nprocs);
-        // build_displacements(rice_displacements, rice_size_arr, nprocs);
-        // // output_arr(rice_displacements, nprocs);
-        // int rice_arr[rice_size];
-        // rice_agg_size = rice_displacements[nprocs-1]+rice_size;
-        // int rice_agg[rice_agg_size];
-        // convert_vec_to_arr(rice_vec, rice_arr, rice_size);
-        // MPI_Allgatherv(rice_arr, rice_size, MPI_INT, rice_agg, rice_size_arr, rice_displacements, MPI_INT, MPI_COMM_WORLD );
-        // printf("my_rank: %d edges to delete\n", my_rank);
-        // output_arr(rice_agg, rice_agg_size);
-        // // delete edges from graph
-        // igraph_vector_int_init(&rice_agg_vec, rice_agg_size);
-        // convert_arr_to_vec(rice_agg_vec, rice_agg, rice_agg_size);
-        // igraph_es_vector_copy(&rice_agg_es, &rice_agg_vec);
-        // igraph_delete_edges(&graph, rice_agg_es);
+        // aggregates edges to delete`
+        rice_size = igraph_vector_int_size(&rice_vec);
+        printf("my_rank: %d rice_size: %d\n", my_rank, rice_size);
+        MPI_Allgather(&rice_size, 1, MPI_INT, rice_size_arr, 1, MPI_INT, MPI_COMM_WORLD);
+        output_arr(rice_size_arr, nprocs);
+        build_displacements(rice_displacements, rice_size_arr, nprocs);
+        output_arr(rice_displacements, nprocs);
+        int rice_arr[rice_size];
+        rice_agg_size = rice_displacements[nprocs-1]+rice_size_arr[nprocs-1];
+        int rice_agg[rice_agg_size];
+        convert_vec_to_arr(rice_vec, rice_arr, rice_size);
+        MPI_Allgatherv(rice_arr, rice_size, MPI_INT, rice_agg, rice_size_arr, rice_displacements, MPI_INT, MPI_COMM_WORLD );
+        printf("my_rank: %d edges to delete\n", my_rank);
+        output_arr(rice_agg, rice_agg_size);
+        // delete edges from graph
+        igraph_vector_int_init(&rice_agg_vec, rice_agg_size);
+        convert_arr_to_vec(rice_agg_vec, rice_agg, rice_agg_size);
+        igraph_es_vector_copy(&rice_agg_es, &rice_agg_vec);
+        igraph_delete_edges(&graph, rice_agg_es);
     }
 
 
@@ -141,16 +148,22 @@ int CM::main(int my_rank, int nprocs) {
     /** SECTION Get Connected Components START **/
     std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
     // store the results into the queue that each thread pulls from
+    
     int cc_count = connected_components_vector.size();
+    // for (int i = 0 ; i < cc_count; i++) {
+    //     output_vec(connected_components_vector[i]);
+    // }
     int cc_my_work = cc_count/nprocs;
     if (cc_count%nprocs)
-        cc_count++;
+        cc_my_work++;
     int cc_start = my_rank*cc_my_work;
     int cc_end = (my_rank+1)*cc_my_work;
+    if (my_rank == nprocs-1)
+        cc_end = cc_count;
     // non mpi
-    for(size_t i = 0; i < connected_components_vector.size(); i ++) {
-        CM::to_be_mincut_clusters.push(connected_components_vector[i]);
-    }
+    // for(size_t i = 0; i < connected_components_vector.size(); i ++) {
+    //     CM::to_be_mincut_clusters.push(connected_components_vector[i]);
+    // }
     // igraph_t subgraph;
     // igraph_vector_int_t nodes_to_keep;
     // igraph_vector_int_t new_id_to_old_id_vector_map;
@@ -160,12 +173,12 @@ int CM::main(int my_rank, int nprocs) {
     //     VECTOR(nodes_to_keep)[i] = connected_components_vector[i][j];
     // }
     // igraph_induced_subgraph_map(graph, &subgraph, igraph_vss_vector(&nodes_to_keep), IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH, NULL, &new_id_to_old_id_vector_map);
-    // for(size_t i = cc_start; i < cc_end; i ++) {
-    //     CM::to_be_mincut_clusters.push(connected_components_vector[i]);
-    // }
+    for(size_t i = cc_start; i < cc_end; i ++) {
+        CM::to_be_mincut_clusters.push(connected_components_vector[i]);
+    }
     /** SECTION Get Connected Components END **/
     int previous_done_being_clustered_size = 0;
-    while (true) {
+    while (!CM::to_be_mincut_clusters.empty()) {
         this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::debug);
         if(iter_count % 10 == 0) {
             this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::info);
