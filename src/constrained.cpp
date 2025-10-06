@@ -91,11 +91,8 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
     int cluster_id_arr_agg[node_cluster_id_agg_size];
     MPI_Allgatherv(node_id_arr, index_count, MPI_INT, node_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, MPI_COMM_WORLD );
     MPI_Allgatherv(cluster_id_arr, index_count, MPI_INT, cluster_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, MPI_COMM_WORLD );
-    int my_work = v_count/nprocs;
     output_arr(node_id_arr_agg, node_cluster_id_agg_size);
     output_arr(cluster_id_arr_agg, node_cluster_id_agg_size);
-    if (v_count%nprocs != 0)
-        my_work++;
     if (my_rank == 0) {
         for (int i = 0; i < node_cluster_id_agg_size; i++) {
             mpi_clustering_output << node_id_arr_agg[i] << "\t" << cluster_id_arr_agg[i] << "\n";
