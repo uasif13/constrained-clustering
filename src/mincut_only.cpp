@@ -17,23 +17,35 @@ int MincutOnly::main(int my_rank, int nprocs) {
     int after_mincut_number_of_clusters = -2;
     int iter_count = 0;
 
-    std::map<std::string, int> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMap(&graph);
+    ConstrainedClustering::initializeSlice(&graph);
+    std::map<std::string, int> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMapDistributed(&graph);
     std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map, this->existing_clustering);
-    ConstrainedClustering::RemoveInterClusterEdges(&graph, new_node_id_to_cluster_id_map);
+    ConstrainedClustering::RemoveInterClusterEdgesDistributed(&graph, new_node_id_to_cluster_id_map);
 
     /** SECTION Get Connected Components START **/
     std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
     /** SECTION Get Connected Components END **/
+       int cc_count = connected_components_vector.size();
+    // for (int i = 0 ; i < cc_count; i++) {
+    //     output_vec(connected_components_vector[i]);
+    // }
+    int cc_my_work = cc_count/nprocs;
+    if (cc_count%nprocs)
+        cc_my_work++;
+    int cc_start = my_rank*cc_my_work;
+    int cc_end = (my_rank+1)*cc_my_work;
+    if (my_rank == nprocs-1)
+        cc_end = cc_count;
     if(this->connectedness_criterion == ConnectednessCriterion::Simple) {
-        for(size_t i = 0; i < connected_components_vector.size(); i ++) {
+        for(size_t i = cc_start; i < cc_end; i ++) {
             MincutOnly::done_being_mincut_clusters.push(connected_components_vector[i]);
         }
     } else if(this->connectedness_criterion == ConnectednessCriterion::Well) {
         // store the results into the queue that each thread pulls from
-        for(size_t i = 0; i < connected_components_vector.size(); i ++) {
+        for(size_t i = cc_start; i < cc_end; i ++) {
             MincutOnly::to_be_mincut_clusters.push(connected_components_vector[i]);
         }
-        while (true) {
+        while (!MincutOnly::to_be_mincut_clusters.empty()) {
             this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::debug);
             if(iter_count % 10000 == 0) {
                 this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::info);
@@ -79,7 +91,7 @@ int MincutOnly::main(int my_rank, int nprocs) {
 
 
     this->WriteToLogFile("Writing output to: " + this->output_file, Log::info);
-    this->WriteClusterQueue(MincutOnly::done_being_mincut_clusters, &graph);
+    this->WriteClusterQueue(MincutOnly::done_being_mincut_clusters, &graph, cc_start);
     igraph_destroy(&graph);
     return 0;
 }
