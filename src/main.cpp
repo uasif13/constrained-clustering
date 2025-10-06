@@ -99,7 +99,9 @@ int main(int argc, char* argv[]) {
         std::string existing_clustering = cm.get<std::string>("--existing-clustering");
         int num_processors = cm.get<int>("--num-processors");
         std::string output_file = cm.get<std::string>("--output-file");
+        output_file = output_file + "_" + to_string(my_rank);
         std::string log_file = cm.get<std::string>("--log-file");
+        log_file = log_file + "_" + to_string(my_rank);
         int log_level = cm.get<int>("--log-level") - 1; // so that enum is cleaner
         // printf("my_rank: %d create cm object\n", my_rank);
         ConstrainedClustering* cm = new CM(edgelist, algorithm, resolution, existing_clustering, num_processors, output_file, log_file, log_level, my_rank, nprocs);

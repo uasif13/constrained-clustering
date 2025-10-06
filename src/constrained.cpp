@@ -1,9 +1,25 @@
 #include "constrained.h"
+#include "mpi.h"
+
+void build_displacements_output_file(int * displacements, int* size_array, int nprocs) {
+    displacements[0] = 0;
+    for (int i = 1; i < nprocs; i ++) {
+        displacements[i] = displacements[i-1] + size_array[i];
+    }
+}
+
 
 void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& cluster_queue, igraph_t* graph) {
     std::ofstream clustering_output(this->output_file);
     int current_cluster_id = 0;
     this->WriteToLogFile("final clusters:", Log::debug);
+    int v_count = igraph_vcount(graph);
+    int node_id_arr[v_count];
+    int cluster_id_arr[v_count];
+    int index_count = 0;
+    int index_count_arr[nprocs];
+    int cluster_displacements[nprocs];
+    int node_cluster_id_agg_size;
     while(!cluster_queue.empty()) {
         std::vector<int> current_cluster = cluster_queue.front();
         cluster_queue.pop();
@@ -11,10 +27,31 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
         for(size_t i = 0; i < current_cluster.size(); i ++) {
             this->WriteToLogFile(std::to_string(current_cluster[i]), Log::debug);
             clustering_output << VAS(graph, "name", current_cluster[i]) << " " << current_cluster_id << '\n';
+            node_id_arr[index_count] = stoi(VAS(graph, "name", current_cluster[i]));
+            cluster_id_arr[index_count] = current_cluster_id;
+            index_count++;
         }
         current_cluster_id ++;
     }
     clustering_output.close();
+    std::ofstream mpi_clustering_output("./output_clusters_mpi.tsv");
+
+    MPI_Allgather(&index_count, 1, MPI_INT, index_count_arr, 1, MPI_INT, MPI_COMM_WORLD);
+    // output_arr(rice_size_arr, nprocs);
+    build_displacements_output_file(cluster_displacements, index_count_arr, nprocs);
+    // output_arr(rice_displacements, nprocs);
+    node_cluster_id_agg_size = cluster_displacements[nprocs-1]+index_count_arr[nprocs-1];
+    int node_id_arr_agg[node_cluster_id_agg_size];
+    int cluster_id_arr_agg[node_cluster_id_agg_size];
+    MPI_Allgatherv(node_id_arr, index_count, MPI_INT, node_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, MPI_COMM_WORLD );
+    MPI_Allgatherv(cluster_id_arr, index_count, MPI_INT, cluster_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, MPI_COMM_WORLD );
+    if (my_rank == 0) {
+        for (int i = 0; i < node_cluster_id_agg_size; i++) {
+            mpi_clustering_output << node_id_arr_agg[i] << "\t" << cluster_id_arr_agg[i] << "\n";
+        }
+    }
+    mpi_clustering_output.close();
+    
 }
 
 void ConstrainedClustering::WritePartitionMap(std::map<int, int>& final_partition) {
