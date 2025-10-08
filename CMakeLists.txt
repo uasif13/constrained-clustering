@@ -55,6 +55,7 @@ else()
         PUBLIC ${CMAKE_SOURCE_DIR}/src
         PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/VieCut/lib
         PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/VieCut/extlib/tlx
+        PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/include
     )
     target_link_libraries(internal_libs PUBLIC igraph::igraph)
     target_link_libraries(internal_libs PUBLIC libleidenalg::libleidenalg)
@@ -64,6 +65,7 @@ else()
     #[[ Link libraries ]]
     add_subdirectory(libs)
     target_link_libraries(constrained_clustering PUBLIC external_libs)
+    add_definitions(-w)
 
     #[[ Link external libraries ]]
 endif("${CMAKE_BINARY_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")

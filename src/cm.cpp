@@ -1,5 +1,11 @@
 #include "cm.h"
 
+template <typename T>
+void output_map(std::map<T,int> map) {
+    for (const auto&[key, val]: map) {
+        std::cout << key << "\t" << val << "\n";
+    }
+}
 int CM::main() {
     /* std::random_device rd; */
     /* std::mt19937 rng{rd()}; */
@@ -26,6 +32,7 @@ int CM::main() {
         /* int seed = uni(rng); */
         int seed = 0;
         std::map<int, int> node_id_to_cluster_id_map = ConstrainedClustering::GetCommunities("", this->algorithm, seed, this->clustering_parameter, &graph);
+        output_map(node_id_to_cluster_id_map);
         ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_map);
     } else if(this->existing_clustering != "") {
         std::map<std::string, int> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMap(&graph);
