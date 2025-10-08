@@ -95,7 +95,7 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
     output_arr(cluster_id_arr_agg, node_cluster_id_agg_size);
     if (my_rank == 0) {
         for (int i = 0; i < node_cluster_id_agg_size; i++) {
-            mpi_clustering_output << node_id_arr_agg[i] << "\t" << cluster_id_arr_agg[i] << "\n";
+            mpi_clustering_output << node_id_arr_agg[i] << " " << cluster_id_arr_agg[i] << "\n";
         }
     }
     mpi_clustering_output.close();
