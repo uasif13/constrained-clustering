@@ -50,7 +50,7 @@ int CM::main(int my_rank, int nprocs) {
     /* std::random_device rd; */
     /* std::mt19937 rng{rd()}; */
     /* std::uniform_int_distribution<int> uni(0, 100000); */
-    this->WriteToLogFile("Loading the initial graph" , Log::info);
+    this->WriteToLogFile("Loading the initial graph" , Log::info, my_rank);
 
     printf("my_rank: %d load graph\n", my_rank);
     FILE* edgelist_file = fopen(this->edgelist.c_str(), "r");
@@ -63,7 +63,7 @@ int CM::main(int my_rank, int nprocs) {
     /* igraph_read_graph_edgelist(&graph, edgelist_file, 0, false); */
     fclose(edgelist_file);
     printf("my_rank: %d finished loading graph\n", my_rank);
-    this->WriteToLogFile("Finished loading the initial graph" , Log::info);
+    this->WriteToLogFile("Finished loading the initial graph" , Log::info, my_rank);
     /* std::cerr << EAN(&graph, "weight", 0) << std::endl; */
     
     int graph_vcount = igraph_vcount(&graph);
@@ -179,13 +179,13 @@ int CM::main(int my_rank, int nprocs) {
     /** SECTION Get Connected Components END **/
     int previous_done_being_clustered_size = 0;
     while (!CM::to_be_mincut_clusters.empty()) {
-        this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::debug);
+        this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::debug, my_rank);
         if(iter_count % 10 == 0) {
-            this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::info);
+            this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::info, my_rank);
         }
 
         /** SECTION MinCutOnceAndCluster Each Connected Component START **/
-        this->WriteToLogFile(std::to_string(CM::to_be_mincut_clusters.size()) + " [connected components / clusters] to be mincut", Log::debug);
+        this->WriteToLogFile(std::to_string(CM::to_be_mincut_clusters.size()) + " [connected components / clusters] to be mincut", Log::debug, my_rank);
         /* before_mincut_number_of_clusters = CM::to_be_mincut_clusters.size(); */
         /* if a thread gets a cluster {-1}, then they know processing is done and they can stop working */
         for(int i = 0; i < this->num_processors; i ++) {
@@ -203,16 +203,16 @@ int CM::main(int my_rank, int nprocs) {
         for(size_t thread_index = 0; thread_index < thread_vector.size(); thread_index ++) {
             thread_vector[thread_index].join();
         }
-        this->WriteToLogFile(std::to_string(CM::to_be_clustered_clusters.size()) + " [connected components / clusters] to be clustered after a round of mincuts", Log::debug);
-        this->WriteToLogFile(std::to_string(CM::done_being_clustered_clusters.size() - previous_done_being_clustered_size) + " [connected components / clusters] were found to be well connected", Log::debug);
+        this->WriteToLogFile(std::to_string(CM::to_be_clustered_clusters.size()) + " [connected components / clusters] to be clustered after a round of mincuts", Log::debug, my_rank);
+        this->WriteToLogFile(std::to_string(CM::done_being_clustered_clusters.size() - previous_done_being_clustered_size) + " [connected components / clusters] were found to be well connected", Log::debug, my_rank);
         previous_done_being_clustered_size = CM::done_being_clustered_clusters.size();
         /** SECTION MinCutOnceAndCluster Each Connected Component END **/
 
         /** SECTION Check If All Clusters Are Well-Connected START **/
         after_mincut_number_of_clusters = CM::to_be_clustered_clusters.size();
         if(after_mincut_number_of_clusters == 0) {
-            this->WriteToLogFile("all clusters are well-connected", Log::info);
-            this->WriteToLogFile("Total number of iterations: " + std::to_string(iter_count + 1), Log::info);
+            this->WriteToLogFile("all clusters are well-connected", Log::info, my_rank);
+            this->WriteToLogFile("Total number of iterations: " + std::to_string(iter_count + 1), Log::info, my_rank);
             break;
         }
         /** SECTION Check If All Clusters Are Well-Connected END **/
@@ -226,7 +226,7 @@ int CM::main(int my_rank, int nprocs) {
     }
 
 
-    this->WriteToLogFile("Writing output to: " + this->output_file, Log::info);
+    this->WriteToLogFile("Writing output to: " + this->output_file, Log::info, my_rank);
     this->WriteClusterQueue(CM::done_being_clustered_clusters, &graph, cc_start);
     igraph_destroy(&graph);
     return 0;

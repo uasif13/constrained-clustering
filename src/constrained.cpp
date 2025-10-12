@@ -57,7 +57,7 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
 void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& cluster_queue, igraph_t* graph, int cluster_start) {
     std::ofstream clustering_output(this->output_file);
     int current_cluster_id = cluster_start;
-    this->WriteToLogFile("final clusters:", Log::debug);
+    this->WriteToLogFile("final clusters:", Log::debug, my_rank);
     int v_count = igraph_vcount(graph);
     int node_id_arr[v_count];
     int cluster_id_arr[v_count];
@@ -69,9 +69,9 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
         std::vector<int> current_cluster = cluster_queue.front();
         cluster_queue.pop();
         output_vec(current_cluster);
-        this->WriteToLogFile("new cluster", Log::debug);
+        this->WriteToLogFile("new cluster", Log::debug, my_rank);
         for(size_t i = 0; i < current_cluster.size(); i ++) {
-            this->WriteToLogFile(std::to_string(current_cluster[i]), Log::debug);
+            this->WriteToLogFile(std::to_string(current_cluster[i]), Log::debug, my_rank);
             clustering_output << VAS(graph, "name", current_cluster[i]) << " " << current_cluster_id << '\n';
             node_id_arr[index_count] = stoi(VAS(graph, "name", current_cluster[i]));
             cluster_id_arr[index_count] = current_cluster_id;
@@ -110,7 +110,7 @@ void ConstrainedClustering::WritePartitionMap(std::map<int, int>& final_partitio
     clustering_output.close();
 }
 
-int ConstrainedClustering::WriteToLogFile(std::string message, Log message_type) {
+int ConstrainedClustering::WriteToLogFile(std::string message, Log message_type, int my_rank) {
     if(this->log_level >= message_type) {
         std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
         std::string log_message_prefix;
@@ -139,7 +139,7 @@ int ConstrainedClustering::WriteToLogFile(std::string message, Log message_type)
         log_message_prefix += "(t=";
         log_message_prefix += std::to_string(total_seconds_elapsed.count());
         log_message_prefix += "s)";
-        this->log_file_handle << log_message_prefix << " " << message << '\n';
+        this->log_file_handle <<"my_rank: " << my_rank << " " << log_message_prefix << " " << message << '\n';
 
         if(this->num_calls_to_log_write % 10 == 0) {
             std::flush(this->log_file_handle);

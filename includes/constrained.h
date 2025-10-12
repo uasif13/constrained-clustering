@@ -46,7 +46,7 @@ class ConstrainedClustering {
         }
 
         virtual int main(int my_rank, int nprocs) = 0;
-        int WriteToLogFile(std::string message, Log message_type);
+        int WriteToLogFile(std::string message, Log message_type, int my_rank = -1);
         void WritePartitionMap(std::map<int,int>& final_partition);
         void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph);
 
