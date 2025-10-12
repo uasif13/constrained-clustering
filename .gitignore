@@ -4,3 +4,7 @@ constrained_clustering
 output.log
 output_clusters.tsv
 external_libs/
+
+.vscode
+attachments.zip
+test.sh
