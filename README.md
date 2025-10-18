@@ -75,3 +75,4 @@ Optional arguments:
   --log-file               Output log file [required]
   --log-level              Log level where 0 = silent, 1 = info, 2 = verbose [default: 1]
 ```
+Check if push works
