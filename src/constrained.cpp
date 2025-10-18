@@ -1,6 +1,6 @@
 #include "constrained.h"
 #include "mpi.h"
-
+#include "igraph.h"
 
 template <typename T>
 void output_vec(std::vector<T> vec) {
@@ -25,14 +25,18 @@ void build_displacements_output_file(int * displacements, int* size_array, int n
     }
 }
 
-void update_cluster_id_array(int * cluster_ids, int cluster_size)  {
+int update_cluster_id_array(int * cluster_ids, int cluster_size, int previous_cluster_id)  {
   int current_cluster = 0;
+  int updated_cluster = previous_cluster_id;
+  int count = 0;
   for (int i = 0; i < cluster_size; i++) {
-    if (cluster_ids[i] < current_cluster) {
-      current_cluster ++;
-      cluster_ids[i] = current_cluster;
+    if (cluster_ids[i] > current_cluster) {
+        current_cluster = cluster_ids[i];
+        updated_cluster++;
     }
+    cluster_ids[i] =  updated_cluster;
   }
+  return updated_cluster+1;
 }
 
 void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& cluster_queue, igraph_t* graph) {
@@ -65,13 +69,13 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
 
 void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& cluster_queue, igraph_t* graph, int cluster_start) {
     std::ofstream clustering_output(this->output_file);
+    int previous_cluster_id = 0;
     int current_cluster_id = cluster_start;
 
     int v_count = igraph_vcount(graph);
     int node_id_arr[v_count];
     int cluster_id_arr[v_count];
     int index_count = 0;
-    int index_count_arr[nprocs];
 
     // Write to individual cluster files
     this->WriteToLogFile("final clusters:", Log::debug, my_rank);
@@ -92,39 +96,124 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
     }
     clustering_output.close();
     // Write to aggregate cluster file
+    int index_count_arr[nprocs];
     int cluster_displacements[nprocs];
     int node_cluster_id_agg_size;
-    int node_id_arr_agg[node_cluster_id_agg_size];
-    int cluster_id_arr_agg[node_cluster_id_agg_size];
 
 
-    std::ofstream mpi_clustering_output("./output/output_clusters_mpi.tsv");
 
+
+
+    this -> WriteToLogFile("Write to MPI Output", Log::debug, my_rank);
     // Send index counts to ROOT
     if (my_rank == 0) {
       MPI_Gather(&index_count, 1, MPI_INT, index_count_arr, 1, MPI_INT, 0, MPI_COMM_WORLD);
+      output_arr(index_count_arr, nprocs);
       build_displacements_output_file(cluster_displacements, index_count_arr, nprocs);
-      output_arr(cluster_displacements);
+      output_arr(cluster_displacements, nprocs);
       node_cluster_id_agg_size = cluster_displacements[nprocs-1]+index_count_arr[nprocs-1];
+      this -> WriteToLogFile("my_rank: " + to_string(my_rank) + " agg_size: " + to_string(node_cluster_id_agg_size), Log::debug, my_rank);
     } else {
       MPI_Gather(&index_count, 1, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD);
     }
     MPI_Barrier(MPI_COMM_WORLD);
     
-    // Send node_ids and cluster_ids to ROOT
+
+   // Send node_ids and cluster_ids to ROOT
     if (my_rank == 0) {
+      std::ofstream mpi_clustering_output("./output/output_clusters_mpi.tsv");
+          int node_id_arr_agg[node_cluster_id_agg_size];
+    int cluster_id_arr_agg[node_cluster_id_agg_size];
       MPI_Gatherv(node_id_arr, index_count, MPI_INT,node_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, 0, MPI_COMM_WORLD);
       MPI_Gatherv(cluster_id_arr, index_count, MPI_INT, cluster_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, 0, MPI_COMM_WORLD);
-      update_cluster_id_array(cluster_id_arr_agg, node_cluster_id_agg_size);
+      update_cluster_id_array(cluster_id_arr_agg, node_cluster_id_agg_size, previous_cluster_id);
       for (int i = 0; i < node_cluster_id_agg_size; i++) {
-            mpi_clustering_output << node_id_arr_agg[i] << " " << cluster_id_arr_agg[i] << "\n";
+	mpi_clustering_output << node_id_arr_agg[i] << " " << cluster_id_arr_agg[i] << "\n";
         }
+          mpi_clustering_output.close();
     } else {
       MPI_Gatherv(node_id_arr, index_count, MPI_INT, NULL, NULL, NULL, MPI_INT, 0, MPI_COMM_WORLD);
       MPI_Gatherv(cluster_id_arr, index_count, MPI_INT, NULL, NULL, NULL, MPI_INT, 0, MPI_COMM_WORLD);
     }
 
-    mpi_clustering_output.close();
+
+    
+}
+
+int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cluster_queue, igraph_t* graph, int cluster_start, int previous_cluster_id) {
+    // std::ofstream clustering_output;
+    // clustering_output.open(this->output_file, std::ios_base::app);
+    int current_cluster_id = cluster_start;
+
+    int v_count = igraph_vcount(graph);
+    int node_id_arr[v_count];
+    int cluster_id_arr[v_count];
+    int index_count = 0;
+
+    // Write to individual cluster files
+    this->WriteToLogFile("final clusters:", Log::debug, my_rank);
+
+    while(!cluster_queue->empty()) {
+        std::vector<int> current_cluster = cluster_queue->front();
+        cluster_queue->pop();
+        this->WriteToLogFile("new cluster", Log::debug, my_rank);
+        for(size_t i = 0; i < current_cluster.size(); i ++) {
+            this->WriteToLogFile(std::to_string(current_cluster[i]), Log::debug, my_rank);
+            // clustering_output << VAS(graph, "name", current_cluster[i]) << " " << current_cluster_id << '\n';
+            node_id_arr[index_count] = stoi(VAS(graph, "name", current_cluster[i]));
+            cluster_id_arr[index_count] = current_cluster_id;
+            index_count++;
+
+        }
+        current_cluster_id ++;
+    }
+    // clustering_output.close();
+    // Write to aggregate cluster file
+    int index_count_arr[nprocs];
+    int cluster_displacements[nprocs];
+    int node_cluster_id_agg_size;
+
+    this -> WriteToLogFile("Write to MPI Output", Log::debug, my_rank);
+    // Send index counts to ROOT
+    if (my_rank == 0) {
+      MPI_Gather(&index_count, 1, MPI_INT, index_count_arr, 1, MPI_INT, 0, MPI_COMM_WORLD);
+      output_arr(index_count_arr, nprocs);
+      build_displacements_output_file(cluster_displacements, index_count_arr, nprocs);
+      output_arr(cluster_displacements, nprocs);
+      node_cluster_id_agg_size = cluster_displacements[nprocs-1]+index_count_arr[nprocs-1];
+
+    } else {
+      MPI_Gather(&index_count, 1, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    
+
+   // Send node_ids and cluster_ids to ROOT
+    if (my_rank == 0) {
+        this -> WriteToLogFile("my_rank: " + to_string(my_rank) + " Write to cluster mpi file", Log::debug, my_rank);
+        std::ofstream mpi_clustering_output;
+        mpi_clustering_output.open("./output/output_clusters_mpi.tsv", std::ios_base::app);
+        int node_id_arr_agg[node_cluster_id_agg_size];
+        int cluster_id_arr_agg[node_cluster_id_agg_size];
+        MPI_Gatherv(node_id_arr, index_count, MPI_INT,node_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Gatherv(cluster_id_arr, index_count, MPI_INT, cluster_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, 0, MPI_COMM_WORLD);
+        previous_cluster_id = update_cluster_id_array(cluster_id_arr_agg, node_cluster_id_agg_size, previous_cluster_id);
+        for (int i = 0; i < node_cluster_id_agg_size; i++) {
+            mpi_clustering_output << node_id_arr_agg[i] << " " << cluster_id_arr_agg[i] << "\n";
+        }
+        mpi_clustering_output.close();
+    } else {
+      MPI_Gatherv(node_id_arr, index_count, MPI_INT, NULL, NULL, NULL, MPI_INT, 0, MPI_COMM_WORLD);
+      MPI_Gatherv(cluster_id_arr, index_count, MPI_INT, NULL, NULL, NULL, MPI_INT, 0, MPI_COMM_WORLD);
+    }
+
+    // Broadcast previous_cluster_id
+    MPI_Bcast(&previous_cluster_id,1, MPI_INT, 0, MPI_COMM_WORLD);
+    return previous_cluster_id;
+
+
+
+
     
 }
 

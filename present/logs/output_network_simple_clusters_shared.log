@@ -1,0 +1,37 @@
+[INFO][0-0:0:0](t=6s) Loading the initial graph
+[INFO][0-0:0:0](t=7s) Finished loading the initial graph
+[INFO][0-0:0:0](t=7s) Number of edges after removal 23
+
+[INFO][0-0:0:0](t=8s) Number of edges after removal 20
+
+[DEBUG][0-0:0:0](t=8s) Iteration number: 0
+[INFO][0-0:0:0](t=8s) Iteration number: 0
+[DEBUG][0-0:0:0](t=8s) 3 [connected components / clusters] to be mincut
+[DEBUG][0-0:0:0](t=8s) 0 [connected components / clusters] to be clustered after a round of mincuts
+[DEBUG][0-0:0:0](t=8s) 3 [connected components / clusters] were found to be well connected
+[INFO][0-0:0:0](t=8s) all clusters are well-connected
+[INFO][0-0:0:0](t=8s) Total number of iterations: 1
+[INFO][0-0:0:0](t=8s) Writing output to: ./output/output_clusters_network_simple
+[DEBUG][0-0:0:0](t=14s) final clusters:
+[DEBUG][0-0:0:0](t=14s) new cluster
+[DEBUG][0-0:0:0](t=14s) 0
+[DEBUG][0-0:0:0](t=14s) 1
+[DEBUG][0-0:0:0](t=14s) 2
+[DEBUG][0-0:0:0](t=14s) 4
+[DEBUG][0-0:0:0](t=14s) 5
+[DEBUG][0-0:0:0](t=14s) 6
+[DEBUG][0-0:0:0](t=14s) 8
+[DEBUG][0-0:0:0](t=14s) 9
+[DEBUG][0-0:0:0](t=14s) 10
+[DEBUG][0-0:0:0](t=14s) new cluster
+[DEBUG][0-0:0:0](t=14s) 7
+[DEBUG][0-0:0:0](t=14s) 11
+[DEBUG][0-0:0:0](t=14s) 12
+[DEBUG][0-0:0:0](t=14s) 13
+[DEBUG][0-0:0:0](t=14s) new cluster
+[DEBUG][0-0:0:0](t=14s) 14
+[DEBUG][0-0:0:0](t=14s) 15
+[DEBUG][0-0:0:0](t=14s) 16
+[DEBUG][0-0:0:0](t=14s) 17
+[DEBUG][0-0:0:0](t=14s) 18
+[DEBUG][0-0:0:0](t=14s) 19

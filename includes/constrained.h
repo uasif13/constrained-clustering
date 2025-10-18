@@ -49,8 +49,8 @@ class ConstrainedClustering {
         int WriteToLogFile(std::string message, Log message_type, int my_rank = -1);
         void WritePartitionMap(std::map<int,int>& final_partition);
         void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph);
-
-        void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph, int cluster_start_index);
+        void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph, int cluster_start_index);        
+        int WriteClusterQueueMPI(std::queue<std::vector<int>>* to_be_clustered_clusters, igraph_t* graph, int cluster_start_index, int previous_cluster_id);
 
         int initializeSlice(igraph_t * graph){
             this -> vertex_count = igraph_vcount(graph);
@@ -78,7 +78,7 @@ class ConstrainedClustering {
             // for (int i = 0; i < igraph_vector_int_size(&(this->edge_slice)); i+=2) {
             //     cout << " from: " << VECTOR(this->edge_slice)[i] << " to: " << VECTOR(this -> edge_slice)[i+1] << "\n";
             // }
-            igraph_vector_int_print(&(this -> vertex_vec));
+	    //            igraph_vector_int_print(&(this -> vertex_vec));
             return 0;
         }
             
@@ -184,7 +184,7 @@ class ConstrainedClustering {
                 }
             }
             printf("edges to remove\n");
-            igraph_vector_int_print(&edges_to_remove);
+	    //            igraph_vector_int_print(&edges_to_remove);
             igraph_es_t es;
             igraph_es_vector_copy(&es, &edges_to_remove);
             igraph_delete_edges(graph, es);

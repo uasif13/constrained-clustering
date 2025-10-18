@@ -6,6 +6,8 @@
 using namespace std;
 #define ROOT 0
 
+int mincut_continue[100];
+
 template <typename T>
 void output_map(std::map<T, int> map) {
     for (auto const& [key, val]: map) {
@@ -45,6 +47,15 @@ void convert_arr_to_vec(igraph_vector_int_t vec, int* arr, int arr_size) {
     for (int i= 0; i < arr_size; i++) {
         VECTOR(vec)[i] = arr[i];
     }
+}
+
+bool checkMC(int * arr, int arr_size) {
+  for (int i = 0; i < arr_size; i++) {
+    if (arr[i] == 1) {
+      return true;
+    }
+  }
+  return false;
 }
 
 int CM::main(int my_rank, int nprocs) {
@@ -127,16 +138,16 @@ int CM::main(int my_rank, int nprocs) {
         rice_size = igraph_vector_int_size(&rice_vec);
         printf("my_rank: %d rice_size: %d\n", my_rank, rice_size);
         MPI_Allgather(&rice_size, 1, MPI_INT, rice_size_arr, 1, MPI_INT, MPI_COMM_WORLD);
-        output_arr(rice_size_arr, nprocs);
+	//        output_arr(rice_size_arr, nprocs);
         build_displacements(rice_displacements, rice_size_arr, nprocs);
-        output_arr(rice_displacements, nprocs);
+	//        output_arr(rice_displacements, nprocs);
         int rice_arr[rice_size];
         rice_agg_size = rice_displacements[nprocs-1]+rice_size_arr[nprocs-1];
         int rice_agg[rice_agg_size];
         convert_vec_to_arr(rice_vec, rice_arr, rice_size);
         MPI_Allgatherv(rice_arr, rice_size, MPI_INT, rice_agg, rice_size_arr, rice_displacements, MPI_INT, MPI_COMM_WORLD );
         printf("my_rank: %d edges to delete\n", my_rank);
-        output_arr(rice_agg, rice_agg_size);
+	//        output_arr(rice_agg, rice_agg_size);
         // delete edges from graph
         igraph_vector_int_init(&rice_agg_vec, rice_agg_size);
         convert_arr_to_vec(rice_agg_vec, rice_agg, rice_agg_size);
@@ -183,7 +194,12 @@ int CM::main(int my_rank, int nprocs) {
     }
     /** SECTION Get Connected Components END **/
     int previous_done_being_clustered_size = 0;
-    while (!CM::to_be_mincut_clusters.empty()) {
+    int previous_cluster_id = 0;
+    for (int i = 0; i < nprocs; i++) {
+      mincut_continue[i] = 1;
+    }
+    //    while (!CM::to_be_mincut_clusters.empty()) {
+    while (checkMC(mincut_continue, nprocs)) {
         this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::debug, my_rank);
         if(iter_count % 10 == 0) {
             this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::info, my_rank);
@@ -218,7 +234,10 @@ int CM::main(int my_rank, int nprocs) {
         if(after_mincut_number_of_clusters == 0) {
             this->WriteToLogFile("all clusters are well-connected", Log::info, my_rank);
             this->WriteToLogFile("Total number of iterations: " + std::to_string(iter_count + 1), Log::info, my_rank);
-            break;
+            mincut_continue[my_rank] = 0;
+        }
+        else {
+            mincut_continue[my_rank] = 1;
         }
         /** SECTION Check If All Clusters Are Well-Connected END **/
 
@@ -226,13 +245,16 @@ int CM::main(int my_rank, int nprocs) {
             CM::to_be_mincut_clusters.push(CM::to_be_clustered_clusters.front());
             CM::to_be_clustered_clusters.pop();
         }
-
+        this->WriteToLogFile("my_rank: " + to_string(my_rank) + " Writing output to: " + this->output_file, Log::info, my_rank);
+        previous_cluster_id = this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id);
+        int mincut_continue_mr = !CM::to_be_mincut_clusters.empty();
+        MPI_Allgather(&mincut_continue_mr, 1, MPI_INT, mincut_continue, 1, MPI_INT, MPI_COMM_WORLD);
         iter_count ++;
     }
 
 
-    this->WriteToLogFile("Writing output to: " + this->output_file, Log::info, my_rank);
-    this->WriteClusterQueue(CM::done_being_clustered_clusters, &graph, cc_start);
+    //this->WriteToLogFile("Writing output to: " + this->output_file, Log::info, my_rank);
+    //this->WriteClusterQueue(CM::done_being_clustered_clusters, &graph, cc_start);
     igraph_destroy(&graph);
     return 0;
 }
