@@ -1,5 +1,5 @@
 #include "cm.h"
-#include <mpi.h>
+#include <mpi_telemetry.h>
 #include <igraph.h>
 #include <string>
 
@@ -58,7 +58,7 @@ bool checkMC(int * arr, int arr_size) {
   return false;
 }
 
-int CM::main(int my_rank, int nprocs) {
+int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     /* std::random_device rd; */
     /* std::mt19937 rng{rd()}; */
     /* std::uniform_int_distribution<int> uni(0, 100000); */
@@ -137,7 +137,9 @@ int CM::main(int my_rank, int nprocs) {
         // aggregates edges to delete`
         rice_size = igraph_vector_int_size(&rice_vec);
         printf("my_rank: %d rice_size: %d\n", my_rank, rice_size);
-        MPI_Allgather(&rice_size, 1, MPI_INT, rice_size_arr, 1, MPI_INT, MPI_COMM_WORLD);
+        MPI_Allgather(&rice_size, 1, MPI_INT, rice_size_arr, 1, MPI_INT, MPI_COMM_WORLD, my_rank, -1, 1, opCount);
+        // MPI_Allgather(&rice_size, 1, MPI_INT, rice_size_arr, 1, MPI_INT, MPI_COMM_WORLD);
+
 	//        output_arr(rice_size_arr, nprocs);
         build_displacements(rice_displacements, rice_size_arr, nprocs);
 	//        output_arr(rice_displacements, nprocs);
@@ -145,7 +147,9 @@ int CM::main(int my_rank, int nprocs) {
         rice_agg_size = rice_displacements[nprocs-1]+rice_size_arr[nprocs-1];
         int rice_agg[rice_agg_size];
         convert_vec_to_arr(rice_vec, rice_arr, rice_size);
-        MPI_Allgatherv(rice_arr, rice_size, MPI_INT, rice_agg, rice_size_arr, rice_displacements, MPI_INT, MPI_COMM_WORLD );
+        MPI_Allgatherv(rice_arr, rice_size, MPI_INT, rice_agg, rice_size_arr, rice_displacements, MPI_INT, MPI_COMM_WORLD , my_rank, -1, 2, opCount);
+        // MPI_Allgatherv(rice_arr, rice_size, MPI_INT, rice_agg, rice_size_arr, rice_displacements, MPI_INT, MPI_COMM_WORLD);
+
         printf("my_rank: %d edges to delete\n", my_rank);
 	//        output_arr(rice_agg, rice_agg_size);
         // delete edges from graph
@@ -246,7 +250,7 @@ int CM::main(int my_rank, int nprocs) {
             CM::to_be_clustered_clusters.pop();
         }
         this->WriteToLogFile("my_rank: " + to_string(my_rank) + " Writing output to: " + this->output_file, Log::info, my_rank);
-        previous_cluster_id = this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id);
+        previous_cluster_id = this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id, iter_count, opCount);
         int mincut_continue_mr = !CM::to_be_mincut_clusters.empty();
         MPI_Allgather(&mincut_continue_mr, 1, MPI_INT, mincut_continue, 1, MPI_INT, MPI_COMM_WORLD);
         iter_count ++;

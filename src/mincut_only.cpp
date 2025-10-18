@@ -1,6 +1,6 @@
 #include "mincut_only.h"
 
-int MincutOnly::main(int my_rank, int nprocs) {
+int MincutOnly::main(int my_rank, int nprocs, uint64_t* opCount) {
     this->WriteToLogFile("Loading the initial graph" , Log::info);
     FILE* edgelist_file = fopen(this->edgelist.c_str(), "r");
     igraph_t graph;

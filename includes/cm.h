@@ -7,7 +7,7 @@ class CM : public ConstrainedClustering {
     public:
         CM(std::string edgelist, std::string algorithm, double clustering_parameter, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, int log_level, int my_rank, int nprocs) : ConstrainedClustering(edgelist, algorithm, clustering_parameter, existing_clustering, num_processors, output_file, log_file, log_level, my_rank, nprocs) {
         };
-        int main(int my_rank, int nprocs) override;
+        int main(int my_rank, int nprocs, uint64_t* opCount);
 
         static inline std::vector<std::vector<int>> RunClusterOnPartition(const igraph_t* graph, std::string algorithm, int seed, double clustering_parameter, std::vector<int>& partition) {
             std::vector<std::vector<int>> cluster_vectors;
