@@ -12,7 +12,7 @@
 #include <fstream>
 #include <string>
 
-#include <libleidenalg/GraphHelper.h>
+#include <GraphHelper.h>
 #include <libleidenalg/Optimiser.h>
 #include <libleidenalg/CPMVertexPartition.h>
 #include <libleidenalg/ModularityVertexPartition.h>
@@ -390,7 +390,7 @@ class ConstrainedClustering {
                     edge_weights.push_back(current_edge_weight);
                 }
                 igraph_eit_destroy(&eit);
-                Graph* leiden_graph = Graph::GraphFromEdgeWeights(&graph, edge_weights);
+		Graph* leiden_graph = Graph::GraphFromEdgeWeights(&graph, edge_weights);
                 CPMVertexPartition partition(leiden_graph, clustering_parameter);
                 ConstrainedClustering::RunLeidenAndUpdatePartition(partition_map, &partition, seed, &graph);
             } else if(algorithm == "leiden-mod") {

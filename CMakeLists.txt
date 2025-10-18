@@ -7,10 +7,12 @@ if("${CMAKE_BINARY_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
 else()
     #[[ Set project version ]]
     project(consensus_clustering)
-    list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/external_libs/lib/cmake/igraph)
+    message(${CMAKE_SOURCE_DIR})
     list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/external_libs/lib/cmake/libleidenalg)
-    list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/external_libs/lib64/cmake/igraph)
     list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/external_libs/lib64/cmake/libleidenalg)
+    list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/external_libs/lib/cmake/igraph)
+    list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/external_libs/lib64/cmake/igraph)
+
     find_package(igraph 0.10 CONFIG REQUIRED)
     find_package(libleidenalg 0.11 CONFIG REQUIRED)
     find_package(OpenMP REQUIRED)
@@ -42,8 +44,8 @@ else()
         ${CMAKE_SOURCE_DIR}/src/cm.cpp
         ${CMAKE_SOURCE_DIR}/src/mincut_only.cpp
         ${CMAKE_SOURCE_DIR}/src/mincut_custom.cpp
+	${CMAKE_SOURCE_DIR}/src/GraphHelper.cpp
         ${CMAKE_SOURCE_DIR}/external_libs/VieCut/extlib/tlx/tlx/logger.cpp
-
     )
     #[[ CONSTANTS END ]]
 
@@ -58,7 +60,8 @@ else()
         PUBLIC ${CMAKE_SOURCE_DIR}/src
         PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/VieCut/lib
         PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/VieCut/extlib/tlx
-        PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/include
+	PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/include
+	PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/lib64
         SYSTEM ${MPI_INCLUDE_PATH}
     )   
     target_link_libraries(internal_libs PUBLIC igraph::igraph)

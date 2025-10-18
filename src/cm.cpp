@@ -1,6 +1,7 @@
 #include "cm.h"
 #include <mpi.h>
 #include <igraph.h>
+#include <string>
 
 using namespace std;
 #define ROOT 0
@@ -83,7 +84,9 @@ int CM::main(int my_rank, int nprocs) {
     int rice_size;
     int rice_size_arr[nprocs];
     int rice_displacements[nprocs];
-
+    string edge_count;
+    edge_count = "my_rank: %d before rice edge_count " + to_string(igraph_ecount(&graph));
+    this -> WriteToLogFile(edge_count, Log::info, my_rank);
     printf("my_rank: %d before rice edge_count: %d\n", my_rank, igraph_ecount(&graph));
     
     if(this->existing_clustering == "") {
@@ -141,6 +144,8 @@ int CM::main(int my_rank, int nprocs) {
         igraph_delete_edges(&graph, rice_agg_es);
     }
 
+    edge_count = "my_rank: %d after rice edge_count " + to_string(igraph_ecount(&graph));
+    this -> WriteToLogFile(edge_count, Log::info, my_rank);
 
     printf("my_rank: %d after rice edge_count: %d\n", my_rank, igraph_ecount(&graph));
     
