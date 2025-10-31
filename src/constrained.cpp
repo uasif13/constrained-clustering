@@ -156,7 +156,7 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
     while(!cluster_queue->empty()) {
         std::vector<int> current_cluster = cluster_queue->front();
         cluster_queue->pop();
-        this->WriteToLogFile("new cluster", Log::debug, my_rank);
+        this->WriteToLogFile("new cluster size: " + std::to_string(current_cluster.size()), Log::debug, my_rank);
         for(size_t i = 0; i < current_cluster.size(); i ++) {
             this->WriteToLogFile(std::to_string(current_cluster[i]), Log::debug, my_rank);
             // clustering_output << VAS(graph, "name", current_cluster[i]) << " " << current_cluster_id << '\n';
@@ -177,9 +177,9 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
     // Send index counts to ROOT
     if (my_rank == 0) {
       MPI_Gather(&index_count, 1, MPI_INT, index_count_arr, 1, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 3, opCount);
-      output_arr(index_count_arr, nprocs);
+      //output_arr(index_count_arr, nprocs);
       build_displacements_output_file(cluster_displacements, index_count_arr, nprocs);
-      output_arr(cluster_displacements, nprocs);
+      //output_arr(cluster_displacements, nprocs);
       node_cluster_id_agg_size = cluster_displacements[nprocs-1]+index_count_arr[nprocs-1];
 
     } else {
@@ -190,9 +190,9 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
 
    // Send node_ids and cluster_ids to ROOT
     if (my_rank == 0) {
-        this -> WriteToLogFile("my_rank: " + to_string(my_rank) + " Write to cluster mpi file", Log::debug, my_rank);
+        this -> WriteToLogFile("my_rank: " + to_string(my_rank) + " Write to cluster mpi file", Log::info, my_rank);
         std::ofstream mpi_clustering_output;
-        mpi_clustering_output.open("./output/output_clusters_mpi.tsv", std::ios_base::app);
+        mpi_clustering_output.open(this->output_file, std::ios_base::app);
         int node_id_arr_agg[node_cluster_id_agg_size];
         int cluster_id_arr_agg[node_cluster_id_agg_size];
         MPI_Gatherv(node_id_arr, index_count, MPI_INT,node_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 4, opCount);

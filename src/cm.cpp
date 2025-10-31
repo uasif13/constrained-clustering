@@ -147,6 +147,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
         rice_agg_size = rice_displacements[nprocs-1]+rice_size_arr[nprocs-1];
         int rice_agg[rice_agg_size];
         convert_vec_to_arr(rice_vec, rice_arr, rice_size);
+        MPI_Barrier(my_rank, -1, 5, opCount);
         MPI_Allgatherv(rice_arr, rice_size, MPI_INT, rice_agg, rice_size_arr, rice_displacements, MPI_INT, MPI_COMM_WORLD , my_rank, -1, 2, opCount);
         // MPI_Allgatherv(rice_arr, rice_size, MPI_INT, rice_agg, rice_size_arr, rice_displacements, MPI_INT, MPI_COMM_WORLD);
 
@@ -180,6 +181,8 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     int cc_end = (my_rank+1)*cc_my_work;
     if (my_rank == nprocs-1)
         cc_end = cc_count;
+    this->WriteToLogFile("CC_count: " + std::to_string(cc_count) + " cc_start: " + std::to_string(cc_start) + " cc_end: " + std::to_string(cc_end), Log::info, my_rank);
+
     // non mpi
     // for(size_t i = 0; i < connected_components_vector.size(); i ++) {
     //     CM::to_be_mincut_clusters.push(connected_components_vector[i]);
