@@ -1,7 +1,19 @@
 #include "mincut_only.h"
+#include "mpi_telemetry.h"
+
+int mincut_continue_wcc[100];
+
+bool checkMc(int * arr, int arr_size) {
+  for (int i = 0; i < arr_size; i++) {
+    if (arr[i] == 1) {
+      return true;
+    }
+  }
+  return false;
+}
 
 int MincutOnly::main(int my_rank, int nprocs, uint64_t* opCount) {
-    this->WriteToLogFile("Loading the initial graph" , Log::info);
+    this->WriteToLogFile("Loading the initial graph" , Log::info, my_rank);
     FILE* edgelist_file = fopen(this->edgelist.c_str(), "r");
     igraph_t graph;
     /* igraph_read_graph_edgelist(&graph, edgelist_file, 0, false); */
@@ -36,6 +48,11 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t* opCount) {
     int cc_end = (my_rank+1)*cc_my_work;
     if (my_rank == nprocs-1)
         cc_end = cc_count;
+    for (int i = 0; i < nprocs; i++) {
+      mincut_continue_wcc[i] = 1;
+    }
+    int previous_done_being_clustered_size = 0;
+    int previous_cluster_id = 0;
     if(this->connectedness_criterion == ConnectednessCriterion::Simple) {
         for(size_t i = cc_start; i < cc_end; i ++) {
             MincutOnly::done_being_mincut_clusters.push(connected_components_vector[i]);
@@ -45,7 +62,7 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t* opCount) {
         for(size_t i = cc_start; i < cc_end; i ++) {
             MincutOnly::to_be_mincut_clusters.push(connected_components_vector[i]);
         }
-        while (!MincutOnly::to_be_mincut_clusters.empty()) {
+        while (checkMc(mincut_continue_wcc, nprocs)) {
             this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::debug);
             if(iter_count % 10000 == 0) {
                 this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::info);
@@ -73,6 +90,7 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t* opCount) {
             } else {
                 MincutOnly::MinCutWorker(&graph, this->connectedness_criterion);
             }
+            previous_done_being_clustered_size = MincutOnly::done_being_mincut_clusters.size();
             this->WriteToLogFile(std::to_string(MincutOnly::to_be_mincut_clusters.size()) + " [connected components / clusters] to be mincut after a round of mincuts", Log::debug);
             /** SECTION MinCut Each Connected Component END **/
 
@@ -81,17 +99,22 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t* opCount) {
             if(after_mincut_number_of_clusters == 0) {
                 this->WriteToLogFile("all clusters are (well) connected", Log::info);
                 this->WriteToLogFile("Total number of iterations: " + std::to_string(iter_count + 1), Log::info);
-                break;
+                mincut_continue_wcc[my_rank] = 0;
+            } else { 
+                mincut_continue_wcc[my_rank] = 1;
             }
             /** SECTION Check If All Clusters Are Well-Connected END **/
-
+            this->WriteToLogFile("my_rank: " + to_string(my_rank) + " Writing output to: " + this->output_file, Log::info, my_rank);
+            previous_cluster_id = this->WriteClusterQueueMPI(&MincutOnly::done_being_mincut_clusters, &graph, cc_start, previous_cluster_id, iter_count, opCount);
+            int mincut_continue_mr = !MincutOnly::to_be_mincut_clusters.empty();
+            MPI_Allgather(&mincut_continue_mr, 1, MPI_INT, mincut_continue_wcc, 1, MPI_INT, MPI_COMM_WORLD);
             iter_count ++;
         }
     }
 
 
-    this->WriteToLogFile("Writing output to: " + this->output_file, Log::info);
-    this->WriteClusterQueue(MincutOnly::done_being_mincut_clusters, &graph, cc_start);
+    //this->WriteToLogFile("Writing output to: " + this->output_file, Log::info);
+    //this->WriteClusterQueue(MincutOnly::done_being_mincut_clusters, &graph, cc_start);
     igraph_destroy(&graph);
     return 0;
 }

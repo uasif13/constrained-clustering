@@ -62,13 +62,29 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     /* std::random_device rd; */
     /* std::mt19937 rng{rd()}; */
     /* std::uniform_int_distribution<int> uni(0, 100000); */
+    int cluster_start, cluster_end;
+    int map_size;
+    if (my_rank == 0) {
+        std::map<int, int> node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(this->existing_clustering);
+        int map_size = node_id_to_cluster_id_map.size();
+        MPI_Bcast(&map_size, 1, MPI_INT, 0, MPI_COMM_WORLD, my_rank, -1, 0, opCount);
+    }
+    int cluster_size = map_size/nprocs;
+    if (map_size%nprocs != 0) {
+        cluster_size ++;
+    }
+    cluster_start = my_rank * cluster_size;
+    cluster_end = (my_rank + 1)*cluster_size;
+    if (cluster_end > map_size) {
+        cluster_end = map_size;
+    }
+    std::map<int, int> node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(this -> existing_clustering, cluster_start, cluster_end);
     this->WriteToLogFile("Loading the initial graph" , Log::info, my_rank);
 
     printf("my_rank: %d load graph\n", my_rank);
     FILE* edgelist_file = fopen(this->edgelist.c_str(), "r");
     igraph_t graph;
     igraph_set_attribute_table(&igraph_cattribute_table);
-    igraph_read_graph_ncol(&graph, edgelist_file, NULL, 1, IGRAPH_ADD_WEIGHTS_IF_PRESENT, IGRAPH_UNDIRECTED);
     if(!igraph_cattribute_has_attr(&graph, IGRAPH_ATTRIBUTE_EDGE, "weight")) {
         SetIgraphAllEdgesWeight(&graph, 1.0);
     }

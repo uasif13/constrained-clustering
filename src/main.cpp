@@ -121,8 +121,10 @@ int main(int argc, char* argv[]) {
         std::string existing_clustering = mincut_only.get<std::string>("--existing-clustering");
         int num_processors = mincut_only.get<int>("--num-processors");
         std::string output_file = mincut_only.get<std::string>("--output-file");
+        output_file = output_file + "_" + to_string(my_rank);
         std::string log_file = mincut_only.get<std::string>("--log-file");
         int log_level = mincut_only.get<int>("--log-level") - 1; // so that enum is cleaner
+        log_file = log_file + "_" + to_string(my_rank);
         mpi_log_file = log_file + "_mpi";
         ConnectednessCriterion connectedness_criterion = static_cast<ConnectednessCriterion>(mincut_only.get<int>("--connectedness-criterion"));
         ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level);
