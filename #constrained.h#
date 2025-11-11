@@ -12,7 +12,7 @@
 #include <fstream>
 #include <string>
 
-#include <GraphHelper.h>
+#include <libleidenalg/GraphHelper.h>
 #include <libleidenalg/Optimiser.h>
 #include <libleidenalg/CPMVertexPartition.h>
 #include <libleidenalg/ModularityVertexPartition.h>
@@ -29,9 +29,24 @@ void output_set(set<T> input) {
     cout << "\n";
 }
 
+Graph* Graph::GraphFromEdgeWeights(igraph_t* graph, vector<double> const& edge_weights, int correct_self_loops)
+{
+  Graph::Graph* g = new Graph::Graph, correct_self_loops);
+
+  if (edge_weights.size() != g->ecount())
+    throw Exception("Edge weights vector inconsistent length with the edge count of the graph.");
+  g->_edge_weights = edge_weights;
+  g->_is_weighted = true;
+  g->set_default_node_size();
+  g->init_admin();
+  g->set_self_weights();
+
+  return g;
+}
+
 class ConstrainedClustering {
     public:
-        ConstrainedClustering(std::string edgelist, std::string algorithm, double clustering_parameter, std::string existing_clustering, int num_processors, std::string output_header, std::string output_file, std::string log_file, int log_level, int my_rank, int nprocs) : edgelist(edgelist), algorithm(algorithm), clustering_parameter(clustering_parameter), existing_clustering(existing_clustering), num_processors(num_processors), output_header(output_header), output_file(output_file), log_file(log_file), log_level(log_level), my_rank(my_rank), nprocs(nprocs){
+        ConstrainedClustering(std::string edgelist, std::string algorithm, double clustering_parameter, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, int log_level, int my_rank, int nprocs) : edgelist(edgelist), algorithm(algorithm), clustering_parameter(clustering_parameter), existing_clustering(existing_clustering), num_processors(num_processors), output_file(output_file), log_file(log_file), log_level(log_level), my_rank(my_rank), nprocs(nprocs){
             if(this->log_level > -1) {
                 this->start_time = std::chrono::steady_clock::now();
                 this->log_file_handle.open(this->log_file);
@@ -45,12 +60,12 @@ class ConstrainedClustering {
             }
         }
 
-        virtual int main(int my_rank, int nprocs, uint64_t* opCount) = 0;
+        virtual int main(int my_rank, int nprocs) = 0;
         int WriteToLogFile(std::string message, Log message_type, int my_rank = -1);
         void WritePartitionMap(std::map<int,int>& final_partition);
         void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph);
-        void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph, int cluster_start_index);        
-        int WriteClusterQueueMPI(std::queue<std::vector<int>>* to_be_clustered_clusters, igraph_t* graph, int cluster_start_index, int previous_cluster_id, int iteration, uint64_t* opCount);
+
+        void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph, int cluster_start_index);
 
         int initializeSlice(igraph_t * graph){
             this -> vertex_count = igraph_vcount(graph);
@@ -78,7 +93,7 @@ class ConstrainedClustering {
             // for (int i = 0; i < igraph_vector_int_size(&(this->edge_slice)); i+=2) {
             //     cout << " from: " << VECTOR(this->edge_slice)[i] << " to: " << VECTOR(this -> edge_slice)[i+1] << "\n";
             // }
-	    //            igraph_vector_int_print(&(this -> vertex_vec));
+            igraph_vector_int_print(&(this -> vertex_vec));
             return 0;
         }
             
@@ -127,19 +142,6 @@ class ConstrainedClustering {
             int cluster_id = -1;
             while (existing_clustering_file >> node_id >> cluster_id) {
                 partition_map[node_id] = cluster_id;
-            }
-            return partition_map;
-        }
-
-        static inline std::map<int, int> ReadCommunities(std::string existing_clustering, int cluster_start, int cluster_end) {
-            std::map<int, int> partition_map;
-            std::ifstream existing_clustering_file(existing_clustering);
-            int node_id = -1;
-            int cluster_id = -1;
-            while (existing_clustering_file >> node_id >> cluster_id) {
-                if (cluster_id >= cluster_start && cluster_id < cluster_end) {
-                    partition_map[node_id] = cluster_id;
-                }
             }
             return partition_map;
         }
@@ -197,7 +199,7 @@ class ConstrainedClustering {
                 }
             }
             printf("edges to remove\n");
-	    //            igraph_vector_int_print(&edges_to_remove);
+            igraph_vector_int_print(&edges_to_remove);
             igraph_es_t es;
             igraph_es_vector_copy(&es, &edges_to_remove);
             igraph_delete_edges(graph, es);
@@ -207,7 +209,7 @@ class ConstrainedClustering {
         }
 
         // currently keeps only those edges that go from within these clusters defined in the map
-        igraph_vector_int_t RemoveInterClusterEdgesDistributed(igraph_t* graph, const std::map<int,int>& node_id_to_cluster_id_map) {
+        static inline igraph_vector_int_t RemoveInterClusterEdgesDistributed(igraph_t* graph, const std::map<int,int>& node_id_to_cluster_id_map) {
             // printf("inside rice_orig\n");
             igraph_vector_int_t edges_to_remove;
             igraph_vector_int_init(&edges_to_remove, 0);
@@ -218,11 +220,8 @@ class ConstrainedClustering {
                 igraph_integer_t current_edge = IGRAPH_EIT_GET(eit);
                 int from_node = IGRAPH_FROM(graph, current_edge);
                 int to_node = IGRAPH_TO(graph, current_edge);
-                std::string from_node_str(VAS(graph, "name", from_node));
-                std::string to_node_str(VAS(graph, "name", to_node));
                 if(node_id_to_cluster_id_map.contains(from_node) && node_id_to_cluster_id_map.contains(to_node)) {
                     if (node_id_to_cluster_id_map.at(from_node) != node_id_to_cluster_id_map.at(to_node)) {
-                        this -> WriteToLogFile("Inter Cluster Edge: from_node " + from_node_str + " to_node " + to_node_str, Log::debug);
                         igraph_vector_int_push_back(&edges_to_remove, IGRAPH_EIT_GET(eit));
                     }
                 }
@@ -406,9 +405,9 @@ class ConstrainedClustering {
                     edge_weights.push_back(current_edge_weight);
                 }
                 igraph_eit_destroy(&eit);
-		Graph* leiden_graph = Graph::GraphFromEdgeWeights(&graph, edge_weights);
-                CPMVertexPartition partition(leiden_graph, clustering_parameter);
-                ConstrainedClustering::RunLeidenAndUpdatePartition(partition_map, &partition, seed, &graph);
+		//                Graph* leiden_graph = Graph::GraphFromEdgeWeights(&graph, edge_weights);
+                //CPMVertexPartition partition(leiden_graph, clustering_parameter);
+                //ConstrainedClustering::RunLeidenAndUpdatePartition(partition_map, &partition, seed, &graph);
             } else if(algorithm == "leiden-mod") {
                 std::vector<double> edge_weights;
                 igraph_eit_t eit;
@@ -418,9 +417,9 @@ class ConstrainedClustering {
                     edge_weights.push_back(current_edge_weight);
                 }
                 igraph_eit_destroy(&eit);
-                Graph* leiden_graph = Graph::GraphFromEdgeWeights(&graph, edge_weights);
-                ModularityVertexPartition partition(leiden_graph);
-                ConstrainedClustering::RunLeidenAndUpdatePartition(partition_map, &partition, seed, &graph);
+                //Graph* leiden_graph = Graph::GraphFromEdgeWeights(&graph, edge_weights);
+                //ModularityVertexPartition partition(leiden_graph);
+                //ConstrainedClustering::RunLeidenAndUpdatePartition(partition_map, &partition, seed, &graph);
             } else {
                 throw std::invalid_argument("GetCommunities(): Unsupported algorithm");
             }
@@ -538,7 +537,6 @@ class ConstrainedClustering {
         int num_processors;
         int my_rank;
         int nprocs;
-        std::string output_header;
         std::string output_file;
         std::string log_file;
         std::chrono::steady_clock::time_point start_time;

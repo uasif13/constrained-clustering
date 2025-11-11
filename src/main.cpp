@@ -6,6 +6,7 @@
 #include "library.h"
 #include "mincut_only.h"
 #include "cm.h"
+#include "split_graph.h"
 
 
 int main(int argc, char* argv[]) {
@@ -16,6 +17,9 @@ int main(int argc, char* argv[]) {
 
     argparse::ArgumentParser mincut_only("MincutOnly");
     mincut_only.add_description("CM");
+
+    argparse::ArgumentParser split_graph("Split");
+    split_graph.add_description("Split Graph into n partitions");
 
     cm.add_argument("--edgelist")
         .required()
@@ -34,12 +38,16 @@ int main(int argc, char* argv[]) {
         .help("Resolution value for leiden-cpm. Only used if --algorithm is leiden-cpm")
         .scan<'f', double>();
     cm.add_argument("--existing-clustering")
+        .required()
         .default_value("")
         .help("Existing clustering file");
     cm.add_argument("--num-processors")
         .default_value(int(1))
         .help("Number of processors")
         .scan<'d', int>();
+    cm.add_argument("--output-header")
+        .required()
+        .help("Output Headers for Distributed Graphs"); 
     cm.add_argument("--output-file")
         .required()
         .help("Output clustering file");
@@ -76,8 +84,32 @@ int main(int argc, char* argv[]) {
         .help("Log level where 0 = silent, 1 = info, 2 = verbose")
         .scan<'d', int>();
 
+    split_graph.add_argument("--edgelist")
+        .required()
+        .help("Network edge-list file");
+    split_graph.add_argument("--existing-clustering")
+        .required()
+        .help("Existing clustering file");
+    split_graph.add_argument("--partitions")
+        .required()
+        .help("Number of partitions to split graph")
+        .scan<'d',int>();
+    split_graph.add_argument("--output-header")
+        .required()
+        .help("Output Header");
+    split_graph.add_argument("--log-file")
+        .required()
+        .help("Log File");
+    split_graph.add_argument("--log-level")
+        .default_value(int(1))
+        .help("Log level where 0 = silent, 1 = info, 2 = verbose")
+        .scan<'d',int>();
+
+    
     main_program.add_subparser(cm);
     main_program.add_subparser(mincut_only);
+    main_program.add_subparser(split_graph);
+
     try {
         main_program.parse_args(argc, argv);
     } catch (const std::runtime_error& err) {
@@ -104,14 +136,17 @@ int main(int argc, char* argv[]) {
         double resolution = cm.get<double>("--resolution");
         std::string existing_clustering = cm.get<std::string>("--existing-clustering");
         int num_processors = cm.get<int>("--num-processors");
+        std::string output_header = cm.get<std::string>("--output-header");
         std::string output_file = cm.get<std::string>("--output-file");
-        output_file = output_file + "_" + to_string(my_rank);
         std::string log_file = cm.get<std::string>("--log-file");
-        log_file = log_file + "_" + to_string(my_rank);
-        mpi_log_file = log_file + "_mpi";
+        mpi_log_file = log_file + "_mpi.log";
+        log_file = log_file + "_" + to_string(my_rank) + ".log";
         int log_level = cm.get<int>("--log-level") - 1; // so that enum is cleaner
         // printf("my_rank: %d create cm object\n", my_rank);
-        ConstrainedClustering* cm = new CM(edgelist, algorithm, resolution, existing_clustering, num_processors, output_file, log_file, log_level, my_rank, nprocs);
+        // SplitGraph* split_graph = new SplitGraph(edgelist, existing_clustering, nprocs, output_header, log_file, log_level);
+        // split_graph -> main();
+        // delete split_graph;
+        ConstrainedClustering* cm = new CM(edgelist, algorithm, resolution, existing_clustering, num_processors, output_header, output_file, log_file, log_level, my_rank, nprocs);
         random_functions::setSeed(0);
         // printf("my_rank: %d call main\n", my_rank);
         cm->main(my_rank, nprocs, opCount);
@@ -131,6 +166,16 @@ int main(int argc, char* argv[]) {
         random_functions::setSeed(0);
         mincut_only->main(my_rank, nprocs, opCount);
         delete mincut_only;
+    } else if (main_program.is_subcommand_used(split_graph)) {
+        std::string edgelist = split_graph.get<std::string>("--edgelist");
+        std::string existing_clustering = split_graph.get<std::string>("--existing-clustering");
+        int num_partitions = split_graph.get<int>("--partitions");
+        std::string output_header = split_graph.get<std::string>("--output-header");
+        std::string log_file = split_graph.get<std::string>("--log-file");
+        int log_level = split_graph.get<int>("--log-level");
+        SplitGraph* split_graph = new SplitGraph(edgelist, existing_clustering, num_partitions, output_header, log_file, log_level);
+        split_graph->main();
+        delete split_graph;
     }
     MPI_Finalize(my_rank,nprocs, opCount, mpi_log_file);
 }

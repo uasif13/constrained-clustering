@@ -1,0 +1,58 @@
+1: procedure CM_shared(edgelist, clusters)
+2:	graph <- loadGraph(edgelist)
+3:	original_to_new_id_map <- GetOriginalToNewIdMap(graph)
+4:	node_id_to_cluster_id_map <- ReadCommunities(original_to_new_id_map, clusters)
+5:	RemoveInterClusterEdges(graph, node_id_to_cluster_id_map)
+6:	components_vector <- GetConnectedComponents(graph)
+7:	for each component c in components_vector do
+8:		to_be_mincut_clusters .push(c)
+9:	end for
+10:	while (True)
+11:		for each processor do
+12:			thread_vector.push(MinCutWorker) 
+13:		End for
+14:		If graph well_connected then
+15:			Break
+16:		End if
+17:		for each cluster c  in to_be_clustered_cluster do
+18:			to_be_mincut_clusters.push(c)
+19:		end for
+20:	end while
+21:end procedure
+
+1: procedure CM_distributed(edgelist, clusters)
+2:	graph <- loadGraph(edgelist)
+3:	initializeSlice(graph) //
+3:	node_id_to_cluster_id_map <- GetCommunities(graph, clusters)
+4:	
+4:	RemoveInterClusterEdges(graph, node_id_to_cluster_id_map)
+5:	components_vector <- GetConnectedComponents(graph)
+6:	for each component c in components_vector do
+7:		to_be_mincut_clusters .push(c)
+8:	end for
+9:	while (True)
+10:		for each processor do
+11:			thread_vector.push(MinCutWorker) 
+12:		End for
+13:		If graph well_connected then
+14:			Break
+15:		End if
+16:		for each cluster c  in to_be_clustered_cluster do
+17:			to_be_mincut_clusters.push(c)
+18:		end for
+19:	end while
+20:end procedure
+	
+2: if mapping is full then
+3: return mapping
+4: end if
+5: candidates ← GETCANDIDATEPAIRS(subgraph, host
+graph, state)
+6: for each candidate c in candidates do
+7: if c satisfies isFeasible rules then
+8: NewState ← add new candidate to state
+9: results ← VF2(subgraph, host, NewState)
+10: end if
+11: end for
+12: end procedure
+
