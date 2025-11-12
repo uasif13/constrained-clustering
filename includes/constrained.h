@@ -81,6 +81,43 @@ class ConstrainedClustering {
 	    //            igraph_vector_int_print(&(this -> vertex_vec));
             return 0;
         }
+
+        int identifyClusters(igraph_t * graph, std::map<int, int>* node_id_to_cluster_id_map, int cluster_size, int my_rank, int nprocs){
+            int start_cluster = my_rank*cluster_size;
+            int end_cluster = (my_rank+1)*cluster_size;
+            printf("my_rank: %d start cluster: %d end cluster: %d\n", my_rank, start_cluster, end_cluster);
+            igraph_vector_int_t remove_edges;
+            igraph_es_t remove_edges_es;
+            igraph_vector_int_init(&remove_edges,0);
+            igraph_eit_t eit;
+            igraph_eit_create(graph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
+
+            // printf("inside rice_orig es created");
+            for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
+                igraph_integer_t current_edge = IGRAPH_EIT_GET(eit);
+                int from_node = stoi(VAS(graph, "name", IGRAPH_FROM(graph, current_edge)));
+                int to_node = stoi(VAS(graph, "name", IGRAPH_TO(graph, current_edge)));
+                if (node_id_to_cluster_id_map -> contains(from_node) && node_id_to_cluster_id_map -> contains(to_node)
+                && node_id_to_cluster_id_map -> at(from_node) == node_id_to_cluster_id_map -> at(to_node) &&
+                node_id_to_cluster_id_map -> at(from_node)/cluster_size == my_rank) {
+                    // igraph_vector_int_push_back(&pprint,from_node);
+                    // igraph_vector_int_push_back(&pprint, to_node);
+                    continue;
+                }
+                else {
+                    igraph_vector_int_push_back(&remove_edges,IGRAPH_FROM(graph, current_edge));
+                    igraph_vector_int_push_back(&remove_edges, IGRAPH_TO(graph, current_edge));
+                }
+            }
+            printf("my_rank: %d edges to remove outside of cluster: %d vertex_count: %d\n",my_rank, igraph_vector_int_size(&remove_edges)/2, igraph_vcount(graph));
+            igraph_es_vector_copy(&remove_edges_es, &remove_edges);
+            igraph_delete_edges(graph, remove_edges_es);
+            // for (int i = 0; i < igraph_vector_int_size(&(this->edge_slice)); i+=2) {
+            //     cout << " from: " << VECTOR(this->edge_slice)[i] << " to: " << VECTOR(this -> edge_slice)[i+1] << "\n";
+            // }
+	    //            igraph_vector_int_print(&(this -> vertex_vec));
+            return 0;
+        }
             
         static inline std::map<std::string, int> GetOriginalToNewIdMap(igraph_t* graph) {
             std::map<std::string, int> original_to_new_id_map;
