@@ -16,6 +16,7 @@
 #include <libleidenalg/Optimiser.h>
 #include <libleidenalg/CPMVertexPartition.h>
 #include <libleidenalg/ModularityVertexPartition.h>
+#include <igraph_types.h>
 
 using namespace std;
 
@@ -25,6 +26,13 @@ template <typename T>
 void output_set(set<T> input) {
     for (T val : input) {
         cout << val << " ";
+    }
+    cout << "\n";
+}
+template <typename T>
+void output_vec_cc(std::vector<T> vec, igraph_t * graph) {
+    for (auto item: vec) {
+        cout << VAS(graph, "name",item) << " ";
     }
     cout << "\n";
 }
@@ -52,33 +60,53 @@ class ConstrainedClustering {
         void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph, int cluster_start_index);        
         int WriteClusterQueueMPI(std::queue<std::vector<int>>* to_be_clustered_clusters, igraph_t* graph, int cluster_start_index, int previous_cluster_id, int iteration, uint64_t* opCount);
 
-        int initializeSlice(igraph_t * graph){
-            this -> vertex_count = igraph_vcount(graph);
-            int my_work = vertex_count/nprocs;
-            if (vertex_count % nprocs != 0)
-                my_work ++;
-            this -> start_vertex = my_rank*my_work;
-            this -> end_vertex = (my_rank+1)*my_work;
-            printf("my_rank: %d start: %d end: %d\n", my_rank, this -> start_vertex, this -> end_vertex);
+        int initializeSubClusters(igraph_t * graph, std::map<int, int>* node_id_to_cluster_id_map, int cluster_size, int my_rank){
+            printf("my_rank: %d start: %d end: %d cluster_size: %d\n", my_rank, this -> start_vertex, this -> end_vertex, cluster_size);
             igraph_vector_int_init(&(this-> vertex_vec),0);
             igraph_eit_t eit;
             igraph_eit_create(graph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
+            igraph_vector_int_t rice;
+            igraph_vector_int_t ricv;
+            // igraph_vector_int_t pprint;
+            igraph_vector_int_init(&rice, 0);
+            igraph_vector_int_init(&ricv, 0);
+            // igraph_vector_int_init(&pprint,0);
+            igraph_es_t rice_es;
+            igraph_vs_t ricv_vs;
+
             // printf("inside rice_orig es created");
             for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
                 igraph_integer_t current_edge = IGRAPH_EIT_GET(eit);
-                int from_node = IGRAPH_FROM(graph, current_edge);
-                int to_node = IGRAPH_TO(graph, current_edge);
-                if (from_node >= this -> start_vertex && from_node < this -> end_vertex || to_node >= this -> start_vertex && to_node < this -> end_vertex) {
-                    igraph_vector_int_push_back(&(this -> vertex_vec),from_node);
-                    igraph_vector_int_push_back(&(this -> vertex_vec), to_node);
-                    this -> vertex_set.insert(from_node);
-                    this -> vertex_set.insert(to_node);
+                int from_node = stoi(VAS(graph, "name",IGRAPH_FROM(graph, current_edge)));
+                int to_node = stoi(VAS(graph, "name",IGRAPH_TO(graph, current_edge)));
+                if (node_id_to_cluster_id_map -> contains(from_node) && node_id_to_cluster_id_map -> contains(to_node)
+                && node_id_to_cluster_id_map -> at(from_node) == node_id_to_cluster_id_map -> at(to_node) &&
+                node_id_to_cluster_id_map -> at(from_node)/cluster_size == my_rank
+            ) {
+                    // igraph_vector_int_push_back(&pprint,from_node);
+                    // igraph_vector_int_push_back(&pprint, to_node);
+                    igraph_vector_int_push_back(&(this -> vertex_vec),IGRAPH_FROM(graph, current_edge));
+                    igraph_vector_int_push_back(&(this -> vertex_vec), IGRAPH_TO(graph, current_edge));
+                    this -> vertex_set.insert(IGRAPH_FROM(graph, current_edge));
+                    this -> vertex_set.insert(IGRAPH_TO(graph, current_edge));
+                }
+                else {
+                    igraph_vector_int_push_back(&rice,IGRAPH_FROM(graph, current_edge));
+                    igraph_vector_int_push_back(&rice, IGRAPH_TO(graph, current_edge));
+                }
+                if (node_id_to_cluster_id_map -> at(from_node)/cluster_size != my_rank) {
+                    igraph_vector_int_push_back(&ricv, IGRAPH_FROM(graph, current_edge));
+                }
+                if (node_id_to_cluster_id_map -> at(to_node)/cluster_size != my_rank) {
+                    igraph_vector_int_push_back(&ricv, IGRAPH_TO(graph, current_edge));
                 }
             }
-            // for (int i = 0; i < igraph_vector_int_size(&(this->edge_slice)); i+=2) {
-            //     cout << " from: " << VECTOR(this->edge_slice)[i] << " to: " << VECTOR(this -> edge_slice)[i+1] << "\n";
-            // }
-	    //            igraph_vector_int_print(&(this -> vertex_vec));
+            // igraph_vector_int_print(&pprint);
+            igraph_es_vector_copy(&rice_es, &rice);
+            igraph_vs_vector_copy(&ricv_vs, &ricv);
+            igraph_delete_edges(graph, rice_es);
+            igraph_delete_vertices(graph, ricv_vs);
+
             return 0;
         }
             
@@ -438,12 +466,13 @@ class ConstrainedClustering {
             igraph_vector_int_destroy(&component_id_vector);
             igraph_vector_int_destroy(&membership_size_vector);
             for(auto const& [component_id, member_vector] : component_id_to_member_vector_map) {
+                // output_vec_cc(member_vector, graph_ptr);
                 connected_components_vector.push_back(member_vector);
             }
             return connected_components_vector;
         }
 
-        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr) {
+        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, int cluster_size, int my_rank) {
             std::vector<std::vector<int>> connected_components_vector;
             std::map<int, std::vector<int>> component_id_to_member_vector_map;
             igraph_vector_int_t component_id_vector;
@@ -451,9 +480,56 @@ class ConstrainedClustering {
             igraph_vector_int_t membership_size_vector;
             igraph_vector_int_init(&membership_size_vector, 0);
             igraph_integer_t number_of_components;
-            igraph_connected_components(graph_ptr, &component_id_vector, &membership_size_vector, &number_of_components, IGRAPH_WEAK);
+            igraph_bitset_t already_added;
+            igraph_dqueue_int_t q = IGRAPH_DQUEUE_NULL;
+            igraph_vector_int_t neis = IGRAPH_VECTOR_NULL;
+            //igraph_connected_components(graph_ptr, &component_id_vector, &membership_size_vector, &number_of_components, IGRAPH_WEAK);
+            int no_of_vertices = igraph_vcount(graph_ptr);
+            int no_of_nodes = (this->vertex_set).size();
+            igraph_vector_int_resize(&component_id_vector, no_of_vertices);
+            igraph_bitset_init(&already_added, no_of_vertices);
+            igraph_dqueue_int_init(&q, no_of_nodes > 100000 ? 10000: no_of_nodes);
+            igraph_vector_int_init(&neis,0);
+            int no_of_components;
+            for (int vertex: this->vertex_set) {
+                //printf("vertex to check connection: %d\n", vertex);
+                int act_component_size;
+                if (IGRAPH_BIT_TEST(already_added, vertex)) {
+                    continue;
+                }
+                IGRAPH_BIT_SET(already_added, vertex);
+                act_component_size = 1;
+                VECTOR(component_id_vector)[vertex] = no_of_components;
+                igraph_dqueue_int_push(&q, vertex);
+                while (!igraph_dqueue_int_empty(&q)) {
+                    int act_node = igraph_dqueue_int_pop(&q);
+                    //printf("act_node inside queue: %d\n", act_node);
+
+                    igraph_neighbors(graph_ptr, &neis, act_node, IGRAPH_ALL, IGRAPH_NO_LOOPS, IGRAPH_MULTIPLE);
+                    int nei_count = igraph_vector_int_size(&neis);
+                    for (int i = 0; i < nei_count; i++) {
+                        int neighbor = VECTOR(neis)[i];
+                        //printf("neighbor inside queue: %d\n", neighbor);
+                        if (!this->vertex_set.contains(neighbor)) {
+                            continue;
+                        }
+                        if (IGRAPH_BIT_TEST(already_added, neighbor)) {
+                            continue;
+                        }
+                        igraph_dqueue_int_push(&q, neighbor);
+                        IGRAPH_BIT_SET(already_added, neighbor);
+                        act_component_size++;
+                        VECTOR(component_id_vector)[neighbor] = no_of_components;
+                    }
+                }
+                no_of_components++;
+                igraph_vector_int_push_back(&membership_size_vector, act_component_size);
+            }
+            igraph_vector_int_print(&component_id_vector);
+
+
             /* std::cerr << "num con comp: " << number_of_components << std::endl; */
-            for(int node_id = 0; node_id < igraph_vcount(graph_ptr); node_id ++) {
+            for(int node_id: this-> vertex_set) {
                 int current_component_id = VECTOR(component_id_vector)[node_id];
                 /* std::cerr << "component id: " << current_component_id << std::endl; */
                 /* std::cerr << "component size: " << VECTOR(membership_size_vector)[current_component_id] << std::endl; */

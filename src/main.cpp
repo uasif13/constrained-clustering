@@ -34,6 +34,7 @@ int main(int argc, char* argv[]) {
         .help("Resolution value for leiden-cpm. Only used if --algorithm is leiden-cpm")
         .scan<'f', double>();
     cm.add_argument("--existing-clustering")
+        .required()
         .default_value("")
         .help("Existing clustering file");
     cm.add_argument("--num-processors")

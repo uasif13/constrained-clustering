@@ -17,7 +17,7 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t* opCount) {
     int after_mincut_number_of_clusters = -2;
     int iter_count = 0;
 
-    ConstrainedClustering::initializeSlice(&graph);
+    //ConstrainedClustering::initializeSlice(&graph);
     std::map<std::string, int> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMapDistributed(&graph);
     std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map, this->existing_clustering);
     ConstrainedClustering::RemoveInterClusterEdgesDistributed(&graph, new_node_id_to_cluster_id_map);
