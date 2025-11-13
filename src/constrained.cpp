@@ -25,14 +25,19 @@ void build_displacements_output_file(int * displacements, int* size_array, int n
     }
 }
 
-int update_cluster_id_array(int * cluster_ids, int cluster_size, int previous_cluster_id)  {
+int update_cluster_id_array(int * cluster_ids, int cluster_size, int previous_cluster_id, int* cluster_displacements, int nprocs)  {
   int current_cluster = 0;
   int updated_cluster = previous_cluster_id;
-  int count = 0;
+  int count = 1;
   for (int i = 0; i < cluster_size; i++) {
     if (cluster_ids[i] > current_cluster) {
         current_cluster = cluster_ids[i];
         updated_cluster++;
+    } else if (nprocs > 1 && i == cluster_displacements[count]) {
+        count ++;
+        updated_cluster++;
+        current_cluster = 0;
+        // current_cluster = updated_cluster;
     }
     cluster_ids[i] =  updated_cluster;
   }
@@ -55,7 +60,7 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
         cluster_queue.pop();
         this->WriteToLogFile("new cluster", Log::debug);
         for(size_t i = 0; i < current_cluster.size(); i ++) {
-            this->WriteToLogFile(std::to_string(current_cluster[i]), Log::debug);
+            this->WriteToLogFile(VAS(graph, "name",current_cluster[i]), Log::debug);
             clustering_output << VAS(graph, "name", current_cluster[i]) << " " << current_cluster_id << '\n';
             node_id_arr[index_count] = stoi(VAS(graph, "name", current_cluster[i]));
             cluster_id_arr[index_count] = current_cluster_id;
@@ -85,7 +90,7 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
         cluster_queue.pop();
         this->WriteToLogFile("new cluster", Log::debug, my_rank);
         for(size_t i = 0; i < current_cluster.size(); i ++) {
-            this->WriteToLogFile(std::to_string(current_cluster[i]), Log::debug, my_rank);
+            this->WriteToLogFile(VAS(graph, "name",current_cluster[i]), Log::debug, my_rank);
             clustering_output << VAS(graph, "name", current_cluster[i]) << " " << current_cluster_id << '\n';
             node_id_arr[index_count] = stoi(VAS(graph, "name", current_cluster[i]));
             cluster_id_arr[index_count] = current_cluster_id;
@@ -126,7 +131,7 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
     int cluster_id_arr_agg[node_cluster_id_agg_size];
       MPI_Gatherv(node_id_arr, index_count, MPI_INT,node_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, 0, MPI_COMM_WORLD);
       MPI_Gatherv(cluster_id_arr, index_count, MPI_INT, cluster_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, 0, MPI_COMM_WORLD);
-      update_cluster_id_array(cluster_id_arr_agg, node_cluster_id_agg_size, previous_cluster_id);
+    //   update_cluster_id_array(cluster_id_arr_agg, node_cluster_id_agg_size, previous_cluster_id);
       for (int i = 0; i < node_cluster_id_agg_size; i++) {
 	mpi_clustering_output << node_id_arr_agg[i] << " " << cluster_id_arr_agg[i] << "\n";
         }
@@ -158,7 +163,7 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
         cluster_queue->pop();
         this->WriteToLogFile("new cluster size: " + std::to_string(current_cluster.size()), Log::debug, my_rank);
         for(size_t i = 0; i < current_cluster.size(); i ++) {
-            this->WriteToLogFile(std::to_string(current_cluster[i]), Log::debug, my_rank);
+            this->WriteToLogFile(VAS(graph, "name",current_cluster[i]), Log::debug, my_rank);
             // clustering_output << VAS(graph, "name", current_cluster[i]) << " " << current_cluster_id << '\n';
             node_id_arr[index_count] = stoi(VAS(graph, "name", current_cluster[i]));
             cluster_id_arr[index_count] = current_cluster_id;
@@ -197,7 +202,7 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
         int cluster_id_arr_agg[node_cluster_id_agg_size];
         MPI_Gatherv(node_id_arr, index_count, MPI_INT,node_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 4, opCount);
         MPI_Gatherv(cluster_id_arr, index_count, MPI_INT, cluster_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 4, opCount);
-        previous_cluster_id = update_cluster_id_array(cluster_id_arr_agg, node_cluster_id_agg_size, previous_cluster_id);
+        previous_cluster_id = update_cluster_id_array(cluster_id_arr_agg, node_cluster_id_agg_size, previous_cluster_id, cluster_displacements, nprocs);
         for (int i = 0; i < node_cluster_id_agg_size; i++) {
             mpi_clustering_output << node_id_arr_agg[i] << " " << cluster_id_arr_agg[i] << "\n";
         }

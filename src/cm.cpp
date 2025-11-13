@@ -165,9 +165,31 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
 
     printf("my_rank: %d after rice edge_count: %d\n", my_rank, igraph_ecount(&graph));
     
+    std::map<int, int> node_id_to_cluster_id_map;
+    
+    std::map<int, int> cluster_id_to_new_cluster_id_map;
+    std::ifstream existing_clustering_file(this -> existing_clustering);
+    
+    int node_id = 1;
+    int cluster_id = 1;
+    int cluster_id_new = 0;
+    while (existing_clustering_file >> node_id >> cluster_id) {
+        if (!cluster_id_to_new_cluster_id_map.contains(cluster_id)) {
+            cluster_id_to_new_cluster_id_map[cluster_id] = cluster_id_new;
+            cluster_id_new++;
+        }
+        node_id_to_cluster_id_map[node_id] = cluster_id_to_new_cluster_id_map[cluster_id];
+    }
+    int cluster_size = (cluster_id_new)/this -> nprocs;
+    if ((cluster_id_new)%(nprocs) != 0) {
+        cluster_size ++;
+    }
 
     /** SECTION Get Connected Components START **/
-    std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
+    // std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
+    //printf("my_rank: %d connected components start\n", my_rank);
+    std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, &node_id_to_cluster_id_map, cluster_size, my_rank, nprocs);
+
     // store the results into the queue that each thread pulls from
     
     int cc_count = connected_components_vector.size();
@@ -177,8 +199,10 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     int cc_my_work = cc_count/nprocs;
     if (cc_count%nprocs)
         cc_my_work++;
-    int cc_start = my_rank*cc_my_work;
-    int cc_end = (my_rank+1)*cc_my_work;
+    //int cc_start = my_rank*cc_my_work;
+    //int cc_end = (my_rank+1)*cc_my_work;
+    int cc_start = 0;
+    int cc_end = cc_count;
     if (my_rank == nprocs-1)
         cc_end = cc_count;
     this->WriteToLogFile("CC_count: " + std::to_string(cc_count) + " cc_start: " + std::to_string(cc_start) + " cc_end: " + std::to_string(cc_end), Log::info, my_rank);
