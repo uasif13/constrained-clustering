@@ -452,7 +452,7 @@ class ConstrainedClustering {
 
         std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, std::map<int, int>* node_id_to_cluster_id_map, int cluster_size, int my_rank, int nprocs) {
             std::vector<std::vector<int>> connected_components_vector;
-            std::map<int, std::vector<int>> component_id_to_member_vector_map;
+            std::unordered_map<int, std::vector<int>> component_id_to_member_vector_map;
             igraph_vector_int_t component_id_vector;
             igraph_vector_int_init(&component_id_vector, 0);
             igraph_vector_int_t membership_size_vector;

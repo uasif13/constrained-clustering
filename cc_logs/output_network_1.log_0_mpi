@@ -1,0 +1,67 @@
+my_rank: 0 iteration: -1 MPI_Routine: MPI_Allgather WallTime: 0.000018 Bytes Transferred: 4
+my_rank: 0 iteration: -1 MPI_Routine: MPI_Barrier WallTime: 0.000007 Bytes Transferred: 0
+my_rank: 0 iteration: -1 MPI_Routine: MPI_Allgatherv WallTime: 0.000061 Bytes Transferred: 29020
+my_rank: 0 iteration: -1 MPI_Routine: MPI_Gather WallTime: 0.004069 Bytes Transferred: 4
+my_rank: 0 iteration: -1 MPI_Routine: MPI_Barrier WallTime: 0.000006 Bytes Transferred: 0
+my_rank: 0 iteration: -1 MPI_Routine: MPI_Gatherv WallTime: 0.000015 Bytes Transferred: 492
+my_rank: 0 iteration: 0 MPI_Routine: MPI_Gatherv WallTime: 0.000001 Bytes Transferred: 492
+my_rank: 0 iteration: 0 MPI_Routine: MPI_Bcast WallTime: 0.000009 Bytes Transferred: 4
+my_rank: 0 iteration: 0 MPI_Routine: MPI_Gather WallTime: 0.000004 Bytes Transferred: 4
+my_rank: 0 iteration: 0 MPI_Routine: MPI_Barrier WallTime: 0.000002 Bytes Transferred: 0
+my_rank: 0 iteration: 0 MPI_Routine: MPI_Gatherv WallTime: 0.000000 Bytes Transferred: 208
+my_rank: 0 iteration: 0 MPI_Routine: MPI_Gatherv WallTime: 0.000000 Bytes Transferred: 208
+my_rank: 0 iteration: 0 MPI_Routine: MPI_Bcast WallTime: 0.000001 Bytes Transferred: 4
+my_rank: 1 iteration: -1 MPI_Routine: MPI_Allgather WallTime: 0.002969 Bytes Transferred: 4
+my_rank: 1 iteration: -1 MPI_Routine: MPI_Barrier WallTime: 0.000011 Bytes Transferred: 0
+my_rank: 1 iteration: -1 MPI_Routine: MPI_Allgatherv WallTime: 0.000086 Bytes Transferred: 23924
+my_rank: 1 iteration: -1 MPI_Routine: MPI_Gather WallTime: 0.000010 Bytes Transferred: 4
+my_rank: 1 iteration: -1 MPI_Routine: MPI_Barrier WallTime: 0.000014 Bytes Transferred: 0
+my_rank: 1 iteration: -1 MPI_Routine: MPI_Gatherv WallTime: 0.000105 Bytes Transferred: 1012
+my_rank: 1 iteration: 0 MPI_Routine: MPI_Gatherv WallTime: 0.000003 Bytes Transferred: 1012
+my_rank: 1 iteration: 0 MPI_Routine: MPI_Bcast WallTime: 0.000093 Bytes Transferred: 4
+my_rank: 1 iteration: 0 MPI_Routine: MPI_Gather WallTime: 0.000001 Bytes Transferred: 4
+my_rank: 1 iteration: 0 MPI_Routine: MPI_Barrier WallTime: 0.000452 Bytes Transferred: 0
+my_rank: 1 iteration: 0 MPI_Routine: MPI_Gatherv WallTime: 0.000000 Bytes Transferred: 0
+my_rank: 1 iteration: 0 MPI_Routine: MPI_Gatherv WallTime: 0.000000 Bytes Transferred: 0
+my_rank: 1 iteration: 0 MPI_Routine: MPI_Bcast WallTime: 0.000024 Bytes Transferred: 4
+my_rank: 2 iteration: -1 MPI_Routine: MPI_Allgather WallTime: 0.003407 Bytes Transferred: 4
+my_rank: 2 iteration: -1 MPI_Routine: MPI_Barrier WallTime: 0.000003 Bytes Transferred: 0
+my_rank: 2 iteration: -1 MPI_Routine: MPI_Allgatherv WallTime: 0.000061 Bytes Transferred: 21812
+my_rank: 2 iteration: -1 MPI_Routine: MPI_Gather WallTime: 0.000006 Bytes Transferred: 4
+my_rank: 2 iteration: -1 MPI_Routine: MPI_Barrier WallTime: 0.006306 Bytes Transferred: 0
+my_rank: 2 iteration: -1 MPI_Routine: MPI_Gatherv WallTime: 0.000105 Bytes Transferred: 316
+my_rank: 2 iteration: 0 MPI_Routine: MPI_Gatherv WallTime: 0.000002 Bytes Transferred: 316
+my_rank: 2 iteration: 0 MPI_Routine: MPI_Bcast WallTime: 0.000091 Bytes Transferred: 4
+my_rank: 2 iteration: 0 MPI_Routine: MPI_Gather WallTime: 0.000002 Bytes Transferred: 4
+my_rank: 2 iteration: 0 MPI_Routine: MPI_Barrier WallTime: 0.000436 Bytes Transferred: 0
+my_rank: 2 iteration: 0 MPI_Routine: MPI_Gatherv WallTime: 0.000000 Bytes Transferred: 0
+my_rank: 2 iteration: 0 MPI_Routine: MPI_Gatherv WallTime: 0.000000 Bytes Transferred: 0
+my_rank: 2 iteration: 0 MPI_Routine: MPI_Bcast WallTime: 0.000023 Bytes Transferred: 4
+my_rank: 3 iteration: -1 MPI_Routine: MPI_Allgather WallTime: 0.004151 Bytes Transferred: 4
+my_rank: 3 iteration: -1 MPI_Routine: MPI_Barrier WallTime: 0.000013 Bytes Transferred: 0
+my_rank: 3 iteration: -1 MPI_Routine: MPI_Allgatherv WallTime: 0.000085 Bytes Transferred: 10324
+my_rank: 3 iteration: -1 MPI_Routine: MPI_Gather WallTime: 0.000006 Bytes Transferred: 4
+my_rank: 3 iteration: -1 MPI_Routine: MPI_Barrier WallTime: 0.007263 Bytes Transferred: 0
+my_rank: 3 iteration: -1 MPI_Routine: MPI_Gatherv WallTime: 0.000004 Bytes Transferred: 48
+my_rank: 3 iteration: 0 MPI_Routine: MPI_Gatherv WallTime: 0.000001 Bytes Transferred: 48
+my_rank: 3 iteration: 0 MPI_Routine: MPI_Bcast WallTime: 0.000193 Bytes Transferred: 4
+my_rank: 3 iteration: 0 MPI_Routine: MPI_Gather WallTime: 0.000001 Bytes Transferred: 4
+my_rank: 3 iteration: 0 MPI_Routine: MPI_Barrier WallTime: 0.000455 Bytes Transferred: 0
+my_rank: 3 iteration: 0 MPI_Routine: MPI_Gatherv WallTime: 0.000000 Bytes Transferred: 0
+my_rank: 3 iteration: 0 MPI_Routine: MPI_Gatherv WallTime: 0.000000 Bytes Transferred: 0
+my_rank: 3 iteration: 0 MPI_Routine: MPI_Bcast WallTime: 0.000024 Bytes Transferred: 4
+---------------------Cumulative Time and Bytes Transferred by Routine Type--------------------
+Wall Time
+MPI_Bcast: 0.000457
+MPI_Allgather: 0.010545
+MPI_Allgatherv: 0.000293
+MPI_Gather: 0.004099
+MPI_Gatherv: 0.000237
+MPI_Barrier: 0.014968
+Bytes Transferred
+MPI_Bcast: 32
+MPI_Allgather: 16
+MPI_Allgatherv: 85080
+MPI_Gather: 32
+MPI_Gatherv: 4152
+MPI_Barrier: 0

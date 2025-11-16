@@ -110,54 +110,54 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
         ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_map);
     } else if(this->existing_clustering != "") {
         // non mpi
-        // std::map<std::string, int> original_to_new_id_map_nonmpi = ConstrainedClustering::GetOriginalToNewIdMap(&graph);
+        std::map<std::string, int> original_to_new_id_map_nonmpi = ConstrainedClustering::GetOriginalToNewIdMap(&graph);
         // output_map(original_to_new_id_map_nonmpi);
-        // std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map, this->existing_clustering);
-        // ConstrainedClustering::RemoveInterClusterEdges(&graph, new_node_id_to_cluster_id_map);
+        std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map_nonmpi, this->existing_clustering);
+        ConstrainedClustering::RemoveInterClusterEdges(&graph, new_node_id_to_cluster_id_map);
 
 
         // MPI
         // printf("my_rank: %d clustering data\n", my_rank);
-        ConstrainedClustering::initializeSlice(&graph);
+    //     ConstrainedClustering::initializeSlice(&graph);
 
-        std::map<std::string, int> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMapDistributed(&graph);
-        // printf("my_rank: %d read orig to new id map\n", my_rank);
-        // printf("my_rank: %d clustering file %s\n",this -> existing_clustering);
-        // output_map(original_to_new_id_map);
-        std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map, this->existing_clustering);
+    //     std::map<std::string, int> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMapDistributed(&graph);
+    //     // printf("my_rank: %d read orig to new id map\n", my_rank);
+    //     // printf("my_rank: %d clustering file %s\n",this -> existing_clustering);
+    //     // output_map(original_to_new_id_map);
+    //     std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map, this->existing_clustering);
 
-        // printf("my_rank: %d read communities\n", my_rank);
-        // output_map(new_node_id_to_cluster_id_map);
-        // get edges to delete
-        // printf("my_rank: %d enter rice_distributed\n", my_rank);
+    //     // printf("my_rank: %d read communities\n", my_rank);
+    //     // output_map(new_node_id_to_cluster_id_map);
+    //     // get edges to delete
+    //     // printf("my_rank: %d enter rice_distributed\n", my_rank);
 
-        rice_vec = ConstrainedClustering::RemoveInterClusterEdgesDistributed(&graph, new_node_id_to_cluster_id_map);
+    //     rice_vec = ConstrainedClustering::RemoveInterClusterEdgesDistributed(&graph, new_node_id_to_cluster_id_map);
 
-        // igraph_vector_int_print(&rice_vec);
-        // aggregates edges to delete`
-        rice_size = igraph_vector_int_size(&rice_vec);
-        printf("my_rank: %d rice_size: %d\n", my_rank, rice_size);
-        MPI_Allgather(&rice_size, 1, MPI_INT, rice_size_arr, 1, MPI_INT, MPI_COMM_WORLD, my_rank, -1, 1, opCount);
-        // MPI_Allgather(&rice_size, 1, MPI_INT, rice_size_arr, 1, MPI_INT, MPI_COMM_WORLD);
+    //     // igraph_vector_int_print(&rice_vec);
+    //     // aggregates edges to delete`
+    //     rice_size = igraph_vector_int_size(&rice_vec);
+    //     printf("my_rank: %d rice_size: %d\n", my_rank, rice_size);
+    //     MPI_Allgather(&rice_size, 1, MPI_INT, rice_size_arr, 1, MPI_INT, MPI_COMM_WORLD, my_rank, -1, 1, opCount);
+    //     // MPI_Allgather(&rice_size, 1, MPI_INT, rice_size_arr, 1, MPI_INT, MPI_COMM_WORLD);
 
-	//        output_arr(rice_size_arr, nprocs);
-        build_displacements(rice_displacements, rice_size_arr, nprocs);
-	//        output_arr(rice_displacements, nprocs);
-        int rice_arr[rice_size];
-        rice_agg_size = rice_displacements[nprocs-1]+rice_size_arr[nprocs-1];
-        int rice_agg[rice_agg_size];
-        convert_vec_to_arr(rice_vec, rice_arr, rice_size);
-        MPI_Barrier(my_rank, -1, 5, opCount);
-        MPI_Allgatherv(rice_arr, rice_size, MPI_INT, rice_agg, rice_size_arr, rice_displacements, MPI_INT, MPI_COMM_WORLD , my_rank, -1, 2, opCount);
-        // MPI_Allgatherv(rice_arr, rice_size, MPI_INT, rice_agg, rice_size_arr, rice_displacements, MPI_INT, MPI_COMM_WORLD);
+	// //        output_arr(rice_size_arr, nprocs);
+    //     build_displacements(rice_displacements, rice_size_arr, nprocs);
+	// //        output_arr(rice_displacements, nprocs);
+    //     int rice_arr[rice_size];
+    //     rice_agg_size = rice_displacements[nprocs-1]+rice_size_arr[nprocs-1];
+    //     int rice_agg[rice_agg_size];
+    //     convert_vec_to_arr(rice_vec, rice_arr, rice_size);
+    //     MPI_Barrier(my_rank, -1, 5, opCount);
+    //     MPI_Allgatherv(rice_arr, rice_size, MPI_INT, rice_agg, rice_size_arr, rice_displacements, MPI_INT, MPI_COMM_WORLD , my_rank, -1, 2, opCount);
+    //     // MPI_Allgatherv(rice_arr, rice_size, MPI_INT, rice_agg, rice_size_arr, rice_displacements, MPI_INT, MPI_COMM_WORLD);
 
-        printf("my_rank: %d edges to delete\n", my_rank);
-	//        output_arr(rice_agg, rice_agg_size);
-        // delete edges from graph
-        igraph_vector_int_init(&rice_agg_vec, rice_agg_size);
-        convert_arr_to_vec(rice_agg_vec, rice_agg, rice_agg_size);
-        igraph_es_vector_copy(&rice_agg_es, &rice_agg_vec);
-        igraph_delete_edges(&graph, rice_agg_es);
+    //     printf("my_rank: %d edges to delete\n", my_rank);
+	// //        output_arr(rice_agg, rice_agg_size);
+    //     // delete edges from graph
+    //     igraph_vector_int_init(&rice_agg_vec, rice_agg_size);
+    //     convert_arr_to_vec(rice_agg_vec, rice_agg, rice_agg_size);
+    //     igraph_es_vector_copy(&rice_agg_es, &rice_agg_vec);
+    //     igraph_delete_edges(&graph, rice_agg_es);
     }
 
     edge_count = "my_rank: %d after rice edge_count " + to_string(igraph_ecount(&graph));
@@ -165,9 +165,10 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
 
     printf("my_rank: %d after rice edge_count: %d\n", my_rank, igraph_ecount(&graph));
     
-    std::map<int, int> node_id_to_cluster_id_map;
-    
+    std::map<int,int> node_id_to_cluster_id_map;
     std::map<int, int> cluster_id_to_new_cluster_id_map;
+    // node_id_to_cluster_id_map.reserve(2'000'000'000ULL * 1.1);   // 10% slack
+    // cluster_id_to_new_cluster_id_map.reserve(10'000'000);  
     std::ifstream existing_clustering_file(this -> existing_clustering);
     
     int node_id = 1;
@@ -180,7 +181,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
         }
         node_id_to_cluster_id_map[node_id] = cluster_id_to_new_cluster_id_map[cluster_id];
     }
-    int cluster_size = (cluster_id_new)/this -> nprocs;
+    int cluster_size = (cluster_id_new)/nprocs;
     if ((cluster_id_new)%(nprocs) != 0) {
         cluster_size ++;
     }
