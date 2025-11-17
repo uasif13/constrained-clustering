@@ -40,7 +40,7 @@ int ConstrainedClustering::WriteToLogFile(std::string message, Log message_type)
         auto hours_elapsed = std::chrono::duration_cast<std::chrono::hours>(now - this->start_time - days_elapsed);
         auto minutes_elapsed = std::chrono::duration_cast<std::chrono::minutes>(now - this->start_time - days_elapsed - hours_elapsed);
         auto seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - this->start_time - days_elapsed - hours_elapsed - minutes_elapsed);
-        auto total_seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - this->start_time);
+        auto total_milliseconds_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - this->start_time);
         log_message_prefix += "[";
         log_message_prefix += std::to_string(days_elapsed.count());
         log_message_prefix += "-";
@@ -52,7 +52,7 @@ int ConstrainedClustering::WriteToLogFile(std::string message, Log message_type)
         log_message_prefix += "]";
 
         log_message_prefix += "(t=";
-        log_message_prefix += std::to_string(total_seconds_elapsed.count());
+        log_message_prefix += std::to_string(total_milliseconds_elapsed.count());
         log_message_prefix += "s)";
         this->log_file_handle << log_message_prefix << " " << message << '\n';
 

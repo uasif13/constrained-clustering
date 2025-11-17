@@ -4,3 +4,5 @@ external_libs/
 constrained_clustering
 output.log
 output_clusters.tsv
+cc_logs/
+output/

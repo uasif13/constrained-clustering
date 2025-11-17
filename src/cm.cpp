@@ -1,23 +1,33 @@
 #include "cm.h"
+#include <string>
 
-template <typename T>
-void output_map(std::map<T,int> map) {
-    for (const auto&[key, val]: map) {
-        std::cout << key << "\t" << val << "\n";
-    }
-}
+using namespace std;
+
 int CM::main() {
     /* std::random_device rd; */
     /* std::mt19937 rng{rd()}; */
     /* std::uniform_int_distribution<int> uni(0, 100000); */
-    this->WriteToLogFile("Loading the initial graph" , Log::info);
+    this->WriteToLogFile("Loading the initial graph " + this -> edgelist , Log::info);
     FILE* edgelist_file = fopen(this->edgelist.c_str(), "r");
+    if (edgelist_file == NULL) {
+        this->WriteToLogFile("ERROR: Failed to open edge list file: " + this->edgelist, Log::error);
+        throw std::runtime_error("Failed to open edge list file: " + this->edgelist);
+    }
     igraph_t graph;
+    this->WriteToLogFile("Opened edge_list file" , Log::info);
+
     igraph_set_attribute_table(&igraph_cattribute_table);
+    
+    this->WriteToLogFile("Set igraph attribute table" , Log::info);
+
     igraph_read_graph_ncol(&graph, edgelist_file, NULL, 1, IGRAPH_ADD_WEIGHTS_IF_PRESENT, IGRAPH_UNDIRECTED);
+    
+    this->WriteToLogFile("Read graph ncol" , Log::info);
+
     if(!igraph_cattribute_has_attr(&graph, IGRAPH_ATTRIBUTE_EDGE, "weight")) {
         SetIgraphAllEdgesWeight(&graph, 1.0);
     }
+    this->WriteToLogFile("Set igraph edge weight" , Log::info);
     /* igraph_read_graph_edgelist(&graph, edgelist_file, 0, false); */
     fclose(edgelist_file);
     this->WriteToLogFile("Finished loading the initial graph" , Log::info);
@@ -27,25 +37,32 @@ int CM::main() {
     /* int before_mincut_number_of_clusters = -1; */
     int after_mincut_number_of_clusters = -2;
     int iter_count = 0;
+    int edge_count;
+    string edge_count_message;
+    edge_count = igraph_ecount(&graph);
+    this->WriteToLogFile("Number of nodes in graph: " + to_string(igraph_vcount(&graph)), Log::info);
+    this->WriteToLogFile("Number of edges before removal " + to_string(edge_count) + "\n" , Log::info);
 
     if(this->existing_clustering == "") {
         /* int seed = uni(rng); */
         int seed = 0;
         std::map<int, int> node_id_to_cluster_id_map = ConstrainedClustering::GetCommunities("", this->algorithm, seed, this->clustering_parameter, &graph);
-        output_map(node_id_to_cluster_id_map);
         ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_map);
     } else if(this->existing_clustering != "") {
         std::map<std::string, int> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMap(&graph);
         std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map, this->existing_clustering);
         ConstrainedClustering::RemoveInterClusterEdges(&graph, new_node_id_to_cluster_id_map);
     }
-
+    edge_count = igraph_ecount(&graph);
+    this->WriteToLogFile("Number of edges after removal " + to_string(edge_count) + "\n" , Log::info);
     /** SECTION Get Connected Components START **/
     std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
     // store the results into the queue that each thread pulls from
     for(size_t i = 0; i < connected_components_vector.size(); i ++) {
         CM::to_be_mincut_clusters.push(connected_components_vector[i]);
     }
+    this -> WriteToLogFile("Number of connected components: " + std::to_string(connected_components_vector.size()), Log::info);
+    this -> WriteToLogFile("Initial Number of connected components: " + std::to_string(CM::to_be_mincut_clusters.size()), Log::debug);
     /** SECTION Get Connected Components END **/
     int previous_done_being_clustered_size = 0;
     while (true) {
