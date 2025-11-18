@@ -385,6 +385,104 @@ class ConstrainedClustering {
             return connected_components_vector;
         }
 
+        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, std::map<int, int>* node_id_to_cluster_id_map, int cluster_size, int my_rank, int nprocs) {
+            std::vector<std::vector<int>> connected_components_vector;
+            std::unordered_map<int, std::vector<int>> component_id_to_member_vector_map;
+            igraph_vector_int_t component_id_vector;
+            igraph_vector_int_init(&component_id_vector, 0);
+            igraph_vector_int_t membership_size_vector;
+            igraph_vector_int_init(&membership_size_vector, 0);
+
+            printf("my_rank: %d connected components algorithm start\n", my_rank);
+            igraph_integer_t number_of_components;
+            igraph_bitset_t already_added;
+            igraph_dqueue_int_t q = IGRAPH_DQUEUE_NULL;
+            igraph_vector_int_t neis = IGRAPH_VECTOR_NULL;
+            int no_of_vertices = igraph_vcount(graph_ptr);
+            igraph_vector_int_resize(&component_id_vector, no_of_vertices);
+            for (int vertex = 0; vertex < no_of_vertices; ++vertex) {
+                VECTOR(component_id_vector)[vertex] = -1;
+            }
+            igraph_bitset_init(&already_added, no_of_vertices);
+            igraph_dqueue_int_init(&q, no_of_vertices > 100000 ? 10000: no_of_vertices);
+            igraph_vector_int_init(&neis,0);
+            int no_of_components = 0;
+
+            //printf("my_rank: %d connected components algorithm initialized\n");
+            for (int vertex = 0; vertex < no_of_vertices; ++vertex) {
+                if (!node_id_to_cluster_id_map ->contains(stoi(VAS(graph_ptr, "name",vertex)))) {
+                    continue;
+                }
+                if (node_id_to_cluster_id_map -> at(stoi(VAS(graph_ptr, "name",vertex)))/cluster_size != my_rank) {
+                    continue;
+                }
+                //printf("vertex to check connection: %d\n", vertex);
+                int act_component_size;
+                if (IGRAPH_BIT_TEST(already_added, vertex)) {
+                    continue;
+                }
+                IGRAPH_BIT_SET(already_added, vertex);
+                act_component_size = 1;
+                VECTOR(component_id_vector)[vertex] = no_of_components;
+                igraph_dqueue_int_push(&q, vertex);
+
+                // printf("my_rank: %d connected components queue start\n", my_rank);
+                while (!igraph_dqueue_int_empty(&q)) {
+                    int act_node = igraph_dqueue_int_pop(&q);
+                    // printf("act_node inside queue: %d\n", act_node);
+
+                    igraph_neighbors(graph_ptr, &neis, act_node, IGRAPH_ALL, IGRAPH_NO_LOOPS, IGRAPH_MULTIPLE);
+                    int nei_count = igraph_vector_int_size(&neis);
+                    for (int i = 0; i < nei_count; i++) {
+                        int neighbor = VECTOR(neis)[i];
+                        // printf("neighbor inside queue: %d\n", neighbor);
+                        if (!node_id_to_cluster_id_map ->contains(stoi(VAS(graph_ptr, "name",neighbor)))) {
+                            continue;
+                        }
+                        if (node_id_to_cluster_id_map -> at(stoi(VAS(graph_ptr, "name",neighbor)))/cluster_size != my_rank) {
+                            continue;
+                        }
+                        if (IGRAPH_BIT_TEST(already_added, neighbor)) {
+                            continue;
+                        }
+                        igraph_dqueue_int_push(&q, neighbor);
+                        IGRAPH_BIT_SET(already_added, neighbor);
+                        act_component_size++;
+                        VECTOR(component_id_vector)[neighbor] = no_of_components;
+                    }
+                }
+                no_of_components++;
+                igraph_vector_int_push_back(&membership_size_vector, act_component_size);
+            }
+            // igraph_vector_int_print(&component_id_vector);
+            /* std::cerr << "num con comp: " << number_of_components << std::endl; */
+            for(int node_id = 0; node_id < igraph_vcount(graph_ptr); node_id ++) {
+                if (!node_id_to_cluster_id_map ->contains(stoi(VAS(graph_ptr, "name",node_id)))) {
+                    continue;
+                }
+                if (node_id_to_cluster_id_map -> at(stoi(VAS(graph_ptr, "name",node_id)))/cluster_size != my_rank) {
+                    continue;
+                }
+                int current_component_id = VECTOR(component_id_vector)[node_id];
+                /* std::cerr << "component id: " << current_component_id << std::endl; */
+                /* std::cerr << "component size: " << VECTOR(membership_size_vector)[current_component_id] << std::endl; */
+                /* std::cerr << "graph node id: " << node_id << std::endl; */
+                /* std::cerr << "original node id: " << VAS(graph_ptr, "name", node_id) << std::endl; */
+                if(VECTOR(membership_size_vector)[current_component_id] > 1) {
+                    component_id_to_member_vector_map[current_component_id].push_back(node_id);
+                }
+            }
+            igraph_vector_int_destroy(&component_id_vector);
+            igraph_vector_int_destroy(&membership_size_vector);
+            for(auto const& [component_id, member_vector] : component_id_to_member_vector_map) {
+                if (component_id != -1) {
+                    // output_vec_cc(member_vector, graph_ptr);
+                    connected_components_vector.push_back(member_vector);
+                }
+            }
+            return connected_components_vector;
+        }
+
         static inline bool IsConnected(int edge_cut_size) {
             return edge_cut_size >= 1;
         }

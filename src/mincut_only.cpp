@@ -1,7 +1,15 @@
 #include "mincut_only.h"
 
+bool checkMC(int * arr, int arr_size) {
+  for (int i = 0; i < arr_size; i++) {
+    if (arr[i] == 1) {
+      return true;
+    }
+  }
+  return false;
+}
 
-int MincutOnly::main() {
+int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
 
     this->WriteToLogFile("Parsing connectedness criterion" , Log::info);
 /* F(n) = C log_x(n), where C and x are parameters specified by the user (our default is C=1 and x=10) */
@@ -88,18 +96,50 @@ int MincutOnly::main() {
     /* std::cerr << "num edges after intercluster removal: " << igraph_ecount(&graph)  << std::endl; */
 
     /** SECTION Get Connected Components START **/
-    std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
+    //std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
+    std::map<int,int> node_id_to_cluster_id_map;
+    std::map<int, int> cluster_id_to_new_cluster_id_map;
+    // node_id_to_cluster_id_map.reserve(2'000'000'000ULL * 1.1);   // 10% slack
+    // cluster_id_to_new_cluster_id_map.reserve(10'000'000);  
+    std::ifstream existing_clustering_file(this -> existing_clustering);
+    
+    int node_id = 1;
+    int cluster_id = 1;
+    int cluster_id_new = 0;
+    while (existing_clustering_file >> node_id >> cluster_id) {
+        if (!cluster_id_to_new_cluster_id_map.contains(cluster_id)) {
+            cluster_id_to_new_cluster_id_map[cluster_id] = cluster_id_new;
+            cluster_id_new++;
+        }
+        node_id_to_cluster_id_map[node_id] = cluster_id_to_new_cluster_id_map[cluster_id];
+    }
+    int cluster_size = (cluster_id_new)/nprocs;
+    if ((cluster_id_new)%(nprocs) != 0) {
+        cluster_size ++;
+    }
+
+    std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, &node_id_to_cluster_id_map, cluster_size, my_rank, nprocs);    
     /** SECTION Get Connected Components END **/
     if(current_connectedness_criterion == ConnectednessCriterion::Simple) {
         for(size_t i = 0; i < connected_components_vector.size(); i ++) {
             MincutOnly::done_being_mincut_clusters.push(connected_components_vector[i]);
         }
     } else {
+        int previous_done_being_clustered_size = 0;
+        int previous_cluster_id = 0;
+        for (int i = 0; i < nprocs; i++) {
+        mincut_continue[i] = 1;
+        }
         // store the results into the queue that each thread pulls from
         for(size_t i = 0; i < connected_components_vector.size(); i ++) {
             MincutOnly::to_be_mincut_clusters.push(connected_components_vector[i]);
         }
-        while (true) {
+        int previous_done_being_clustered_size = 0;
+        int previous_cluster_id = 0;
+        for (int i = 0; i < nprocs; i++) {
+        mincut_continue[i] = 1;
+        }
+        while (checkMC(mincut_continue, nprocs)) {
             /* std::cerr << "iter num: " << std::to_string(iter_count) << std::endl; */
             this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::debug);
             if(iter_count % 10000 == 0) {
@@ -138,10 +178,15 @@ int MincutOnly::main() {
             if(after_mincut_number_of_clusters == 0) {
                 this->WriteToLogFile("all clusters are (well) connected", Log::info);
                 this->WriteToLogFile("Total number of iterations: " + std::to_string(iter_count + 1), Log::info);
-                break;
+                mincut_continue[my_rank] = 0;
+            } else {
+                mincut_continue[my_rank] = 1;
             }
             /** SECTION Check If All Clusters Are Well-Connected END **/
-
+            this->WriteToLogFile("my_rank: " + to_string(my_rank) + " Writing output to: " + this->output_file, Log::info, my_rank);
+            previous_cluster_id = this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id, iter_count, opCount);
+            int mincut_continue_mr = !CM::to_be_mincut_clusters.empty();
+            MPI_Allgather(&mincut_continue_mr, 1, MPI_INT, mincut_continue, 1, MPI_INT, MPI_COMM_WORLD);
             iter_count ++;
         }
     }

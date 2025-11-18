@@ -8,7 +8,7 @@ class MincutOnly : public ConstrainedClustering {
     public:
         MincutOnly(std::string edgelist, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, std::string connectedness_criterion, int log_level) : ConstrainedClustering(edgelist, "", -1, existing_clustering, num_processors, output_file, log_file, log_level), connectedness_criterion(connectedness_criterion) {
         };
-        int main() override;
+        int main(int my_rank, int nprocs, uint64_t * opCount) override;
 
         static inline std::vector<std::vector<int>> GetConnectedComponentsOnPartition(const igraph_t* graph, std::vector<int>& partition) {
             std::vector<std::vector<int>> cluster_vectors;
