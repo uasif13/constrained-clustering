@@ -118,7 +118,7 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
         for(size_t i = 0; i < current_cluster.size(); i ++) {
             this->WriteToLogFile(VAS(graph, "name",current_cluster[i]), Log::debug, my_rank);
             // clustering_output << VAS(graph, "name", current_cluster[i]) << " " << current_cluster_id << '\n';
-            node_id_arr[index_count] = stoi(VAS(graph, "name", current_cluster[i]));
+            node_id_arr[index_count] = std::stoi(VAS(graph, "name", current_cluster[i]));
             cluster_id_arr[index_count] = current_cluster_id;
             index_count++;
 
