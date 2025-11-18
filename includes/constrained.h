@@ -10,7 +10,8 @@
 #include <thread>
 #include <map>
 #include <fstream>
-#include <string>
+#include <stdexcept>
+#include <sstream>
 
 #include <GraphHelper.h>
 #include <libleidenalg/Optimiser.h>
@@ -20,6 +21,7 @@
 using namespace std;
 
 enum Log {info, debug, error = -1};
+enum ConnectednessCriterion {Simple, Logarithimic, Exponential};
 
 template <typename T>
 void output_set(set<T> input) {
@@ -48,74 +50,66 @@ class ConstrainedClustering {
         virtual int main(int my_rank, int nprocs, uint64_t* opCount) = 0;
         int WriteToLogFile(std::string message, Log message_type, int my_rank = -1);
         void WritePartitionMap(std::map<int,int>& final_partition);
-        void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph);
-        void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph, int cluster_start_index);        
-        int WriteClusterQueueMPI(std::queue<std::vector<int>>* to_be_clustered_clusters, igraph_t* graph, int cluster_start_index, int previous_cluster_id, int iteration, uint64_t* opCount);
+        void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph, const std::map<int, std::string>& new_to_original_id_map);
 
-        int initializeSlice(igraph_t * graph){
-            this -> vertex_count = igraph_vcount(graph);
-            int my_work = vertex_count/nprocs;
-            if (vertex_count % nprocs != 0)
-                my_work ++;
-            this -> start_vertex = my_rank*my_work;
-            this -> end_vertex = (my_rank+1)*my_work;
-            printf("my_rank: %d start: %d end: %d\n", my_rank, this -> start_vertex, this -> end_vertex);
-            igraph_vector_int_init(&(this-> vertex_vec),0);
-            igraph_eit_t eit;
-            igraph_eit_create(graph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
-            // printf("inside rice_orig es created");
-            for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
-                igraph_integer_t current_edge = IGRAPH_EIT_GET(eit);
-                int from_node = IGRAPH_FROM(graph, current_edge);
-                int to_node = IGRAPH_TO(graph, current_edge);
-                if (from_node >= this -> start_vertex && from_node < this -> end_vertex || to_node >= this -> start_vertex && to_node < this -> end_vertex) {
-                    igraph_vector_int_push_back(&(this -> vertex_vec),from_node);
-                    igraph_vector_int_push_back(&(this -> vertex_vec), to_node);
-                    this -> vertex_set.insert(from_node);
-                    this -> vertex_set.insert(to_node);
-                }
-            }
-            // for (int i = 0; i < igraph_vector_int_size(&(this->edge_slice)); i+=2) {
-            //     cout << " from: " << VECTOR(this->edge_slice)[i] << " to: " << VECTOR(this -> edge_slice)[i+1] << "\n";
-            // }
-	    //            igraph_vector_int_print(&(this -> vertex_vec));
-            return 0;
-        }
-            
-        static inline std::map<std::string, int> GetOriginalToNewIdMap(igraph_t* graph) {
-            std::map<std::string, int> original_to_new_id_map;
-            igraph_vit_t vit;
-            igraph_vit_create(graph, igraph_vss_all(), &vit);
-            for(; !IGRAPH_VIT_END(vit); IGRAPH_VIT_NEXT(vit)) {
-                 igraph_integer_t current_node = IGRAPH_VIT_GET(vit);
-                 original_to_new_id_map[VAS(graph, "name", current_node)] = current_node;
-            }
-            igraph_vit_destroy(&vit);
-            return original_to_new_id_map;
-        }
+        std::map<std::string, int> GetOriginalToNewIdMap(std::string edgelist);
+        std::map<int, std::string> InvertMap(const std::map<std::string, int>& original_to_new_id_map);
 
-        std::map<std::string, int> GetOriginalToNewIdMapDistributed(igraph_t* graph) {
-            std::map<std::string, int> original_to_new_id_map;
-            igraph_vit_t vertex_iter;
-            igraph_vs_t vertex_select = igraph_vss_vector(&(this -> vertex_vec));
-            igraph_vit_create(graph, vertex_select, &vertex_iter);
-            for(;!IGRAPH_VIT_END(vertex_iter); IGRAPH_VIT_NEXT(vertex_iter)) {
-                int node_id = IGRAPH_VIT_GET(vertex_iter);
-                original_to_new_id_map[VAS(graph, "name", node_id)] = node_id;
+        /* static inline std::map<std::string, int> GetOriginalToNewIdMap(igraph_t* graph) { */
+        /*     std::map<std::string, int> original_to_new_id_map; */
+        /*     /1* igraph_vit_t vit; *1/ */
+        /*     /1* igraph_vit_create(graph, igraph_vss_all(), &vit); *1/ */
+        /*     /1* for(; !IGRAPH_VIT_END(vit); IGRAPH_VIT_NEXT(vit)) { *1/ */
+        /*     /1*     igraph_integer_t current_node = IGRAPH_VIT_GET(vit); *1/ */
+        /*     /1*     original_to_new_id_map[VAS(graph, "name", current_node)] = current_node; *1/ */
+        /*     /1* } *1/ */
+        /*     /1* igraph_vit_destroy(&vit); *1/ */
+        /*     for(int node_id = 0; node_id < igraph_vcount(graph); node_id ++) { */
+        /*         original_to_new_id_map[VAS(graph, "name", node_id)] = node_id; */
+        /*     } */
+        /*     return original_to_new_id_map; */
+        /* } */
+
+        void LoadEdgesFromFile(igraph_t* graph, std::string edgelist, const std::map<std::string, int>& original_to_new_id_map);
+
+        static inline char get_delimiter(std::string filepath) {
+            std::ifstream clustering(filepath);
+            std::string line;
+            getline(clustering, line);
+            if (line.find(',') != std::string::npos) {
+                return ',';
+            } else if (line.find('\t') != std::string::npos) {
+                return '\t';
+            } else if (line.find(' ') != std::string::npos) {
+                return ' ';
             }
-            return original_to_new_id_map;
+            throw std::invalid_argument("Could not detect filetype for " + filepath);
         }
 
         static inline std::map<int, int> ReadCommunities(const std::map<std::string, int>& original_to_new_id_map, std::string existing_clustering) {
             std::map<int, int> partition_map;
+            char delimiter = get_delimiter(existing_clustering);
             std::ifstream existing_clustering_file(existing_clustering);
-            std::string node_id;
-            int cluster_id = -1;
-            while (existing_clustering_file >> node_id >> cluster_id) {
-                if (original_to_new_id_map.contains(node_id)) {
+            std::string line;
+            int line_no = 0;
+            while(std::getline(existing_clustering_file, line)) {
+                std::stringstream ss(line);
+                std::string current_value;
+                std::vector<std::string> current_line;
+                while(std::getline(ss, current_value, delimiter)) {
+                    current_line.push_back(current_value);
+                }
+                std::string node_id = current_line[0];
+                if(line_no == 0) {
+                    line_no ++;
+                    continue;
+                }
+                int cluster_id = std::atoi(current_line[1].c_str());
+                if(original_to_new_id_map.contains(node_id)) {
                     int new_node_id = original_to_new_id_map.at(node_id);
                     partition_map[new_node_id] = cluster_id;
                 }
+                line_no ++;
             }
             return partition_map;
         }
@@ -475,47 +469,65 @@ class ConstrainedClustering {
             return edge_cut_size >= 1;
         }
 
-        static inline bool IsWellConnected(int in_partition_size, int out_partition_size, int edge_cut_size) {
-            bool node_connectivity = log10(in_partition_size + out_partition_size) < edge_cut_size;
-            /* return edge_connectivity && node_connectivity; */
-            return node_connectivity;
-        }
-
-        static inline bool IsWellConnected(const std::vector<int>& in_partition, const std::vector<int>& out_partition, int edge_cut_size, const igraph_t* induced_subgraph) {
-            if(edge_cut_size == 0) {
-                return false;
-            }
-            /* double threshold_value = 4; */
-            /* double num_edge_in_side = 0; */
-            /* double num_edge_out_side = 0; */
-            /* if(edge_cut_size != 0) { */
-            /*     std::set<int> in_partition_set(in_partition.begin(), in_partition.end()); */
-            /*     std::set<int> out_partition_set(out_partition.begin(), out_partition.end()); */
-            /*     igraph_eit_t eit; */
-            /*     igraph_eit_create(induced_subgraph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit); */
-            /*     for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) { */
-            /*         igraph_integer_t current_edge = IGRAPH_EIT_GET(eit); */
-            /*         int from_node = IGRAPH_FROM(induced_subgraph, current_edge); */
-            /*         int to_node = IGRAPH_TO(induced_subgraph, current_edge); */
-            /*         if(in_partition_set.contains(from_node) && in_partition_set.contains(to_node)) { */
-            /*             num_edge_in_side ++; */
-            /*         } */
-            /*         if(out_partition_set.contains(from_node) && out_partition_set.contains(to_node)) { */
-            /*             num_edge_out_side ++; */
-            /*         } */
-            /*     } */
-            /*     igraph_eit_destroy(&eit); */
+/* F(n) = C log_x(n), where C and x are parameters specified by the user (our default is C=1 and x=10) */
+/* G(n) = C n^x, where C and x are parameters specified by the user (here, presumably 0<x<2). Note that x=1 makes it linear. */
+        static inline bool IsWellConnected(ConnectednessCriterion current_connectedness_criterion, double connectedness_criterion_c, double connectedness_criterion_x, double pre_computed_log, int in_partition_size, int out_partition_size, int edge_cut_size) {
+            /* size_t log_position = connectedness_criterion.find("log") */
+            /* size_t n_caret_position = connectedness_criterion.find("n^") */
+            /* if (log_position != std::string::npos) { */
+            /*     // is log term */
+            /* } else if (n_caret_position != std::string::npos) { */
             /* } */
-
-            /* bool edge_connectivity = (num_edge_in_side / threshold_value > edge_cut_size) && (num_edge_out_side / threshold_value > edge_cut_size); */
-            /* std::cerr << edge_cut_size << std::endl; */
-            bool node_connectivity = log10(in_partition.size() + out_partition.size()) < edge_cut_size;
+            if (current_connectedness_criterion == ConnectednessCriterion::Logarithimic) {
+                /* bool node_connectivity = connectedness_criterion_c * std::log(in_partition_size + out_partition_size) / std::log(connectedness_criterion_x) < edge_cut_size; */
+                bool node_connectivity = pre_computed_log * std::log(in_partition_size + out_partition_size) < edge_cut_size;
+                return node_connectivity;
+            } else if (current_connectedness_criterion == ConnectednessCriterion::Exponential) {
+                bool node_connectivity = connectedness_criterion_c * std::pow(in_partition_size + out_partition_size, connectedness_criterion_x) < edge_cut_size;
+                return node_connectivity;
+            } else {
+                // should not be possible
+            }
             /* return edge_connectivity && node_connectivity; */
-            return node_connectivity;
+            return false;
         }
+
+        /* static inline bool IsWellConnected(const std::vector<int>& in_partition, const std::vector<int>& out_partition, int edge_cut_size, const igraph_t* induced_subgraph) { */
+        /*     if(edge_cut_size == 0) { */
+        /*         return false; */
+        /*     } */
+        /*     /1* double threshold_value = 4; *1/ */
+        /*     /1* double num_edge_in_side = 0; *1/ */
+        /*     /1* double num_edge_out_side = 0; *1/ */
+        /*     /1* if(edge_cut_size != 0) { *1/ */
+        /*     /1*     std::set<int> in_partition_set(in_partition.begin(), in_partition.end()); *1/ */
+        /*     /1*     std::set<int> out_partition_set(out_partition.begin(), out_partition.end()); *1/ */
+        /*     /1*     igraph_eit_t eit; *1/ */
+        /*     /1*     igraph_eit_create(induced_subgraph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit); *1/ */
+        /*     /1*     for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) { *1/ */
+        /*     /1*         igraph_integer_t current_edge = IGRAPH_EIT_GET(eit); *1/ */
+        /*     /1*         int from_node = IGRAPH_FROM(induced_subgraph, current_edge); *1/ */
+        /*     /1*         int to_node = IGRAPH_TO(induced_subgraph, current_edge); *1/ */
+        /*     /1*         if(in_partition_set.contains(from_node) && in_partition_set.contains(to_node)) { *1/ */
+        /*     /1*             num_edge_in_side ++; *1/ */
+        /*     /1*         } *1/ */
+        /*     /1*         if(out_partition_set.contains(from_node) && out_partition_set.contains(to_node)) { *1/ */
+        /*     /1*             num_edge_out_side ++; *1/ */
+        /*     /1*         } *1/ */
+        /*     /1*     } *1/ */
+        /*     /1*     igraph_eit_destroy(&eit); *1/ */
+        /*     /1* } *1/ */
+
+        /*     /1* bool edge_connectivity = (num_edge_in_side / threshold_value > edge_cut_size) && (num_edge_out_side / threshold_value > edge_cut_size); *1/ */
+        /*     /1* std::cerr << edge_cut_size << std::endl; *1/ */
+        /*     bool node_connectivity = log10(in_partition.size() + out_partition.size()) < edge_cut_size; */
+        /*     /1* return edge_connectivity && node_connectivity; *1/ */
+        /*     return node_connectivity; */
+        /* } */
 
     protected:
         std::string edgelist;
+        int num_edges;
         std::string algorithm;
         double clustering_parameter;
         std::string existing_clustering;
