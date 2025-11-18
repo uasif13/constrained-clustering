@@ -8,3 +8,8 @@ external_libs/
 .vscode
 attachments.zip
 test.sh
+
+scripts/
+outputs/
+cc_logs/
+examples/

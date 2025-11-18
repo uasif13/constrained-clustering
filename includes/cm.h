@@ -5,9 +5,9 @@
 
 class CM : public ConstrainedClustering {
     public:
-        CM(std::string edgelist, std::string algorithm, double clustering_parameter, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, int log_level, int my_rank, int nprocs) : ConstrainedClustering(edgelist, algorithm, clustering_parameter, existing_clustering, num_processors, output_file, log_file, log_level, my_rank, nprocs) {
+        CM(std::string edgelist, std::string algorithm, double clustering_parameter, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, int log_level) : ConstrainedClustering(edgelist, algorithm, clustering_parameter, existing_clustering, num_processors, output_file, log_file, log_level) {
         };
-        int main(int my_rank, int nprocs, uint64_t* opCount);
+        int main() override;
 
         static inline std::vector<std::vector<int>> RunClusterOnPartition(const igraph_t* graph, std::string algorithm, int seed, double clustering_parameter, std::vector<int>& partition) {
             std::vector<std::vector<int>> cluster_vectors;
@@ -49,7 +49,6 @@ class CM : public ConstrainedClustering {
                     // done with work!
                     return;
                 }
-                // initially all nodes
                 igraph_vector_int_t nodes_to_keep;
                 igraph_vector_int_t new_id_to_old_id_vector_map;
                 igraph_vector_int_init(&nodes_to_keep, current_cluster.size());

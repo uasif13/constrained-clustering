@@ -13,27 +13,17 @@
 #include <stdexcept>
 #include <sstream>
 
-#include <GraphHelper.h>
+#include <libleidenalg/GraphHelper.h>
 #include <libleidenalg/Optimiser.h>
 #include <libleidenalg/CPMVertexPartition.h>
 #include <libleidenalg/ModularityVertexPartition.h>
 
-using namespace std;
-
 enum Log {info, debug, error = -1};
 enum ConnectednessCriterion {Simple, Logarithimic, Exponential};
 
-template <typename T>
-void output_set(set<T> input) {
-    for (T val : input) {
-        cout << val << " ";
-    }
-    cout << "\n";
-}
-
 class ConstrainedClustering {
     public:
-        ConstrainedClustering(std::string edgelist, std::string algorithm, double clustering_parameter, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, int log_level, int my_rank, int nprocs) : edgelist(edgelist), algorithm(algorithm), clustering_parameter(clustering_parameter), existing_clustering(existing_clustering), num_processors(num_processors), output_file(output_file), log_file(log_file), log_level(log_level), my_rank(my_rank), nprocs(nprocs){
+        ConstrainedClustering(std::string edgelist, std::string algorithm, double clustering_parameter, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, int log_level) : edgelist(edgelist), algorithm(algorithm), clustering_parameter(clustering_parameter), existing_clustering(existing_clustering), num_processors(num_processors), output_file(output_file), log_file(log_file), log_level(log_level) {
             if(this->log_level > -1) {
                 this->start_time = std::chrono::steady_clock::now();
                 this->log_file_handle.open(this->log_file);
@@ -47,8 +37,8 @@ class ConstrainedClustering {
             }
         }
 
-        virtual int main(int my_rank, int nprocs, uint64_t* opCount) = 0;
-        int WriteToLogFile(std::string message, Log message_type, int my_rank = -1);
+        virtual int main() = 0;
+        int WriteToLogFile(std::string message, Log message_type);
         void WritePartitionMap(std::map<int,int>& final_partition);
         void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph, const std::map<int, std::string>& new_to_original_id_map);
 
@@ -125,20 +115,6 @@ class ConstrainedClustering {
             return partition_map;
         }
 
-        std::map<int, int> ReadCommunitiesDistributed(std::string existing_clustering) {
-            std::map<int, int> partition_map;
-            std::ifstream existing_clustering_file(existing_clustering);
-            int node_id = -1;
-            int cluster_id = -1;
-            while (existing_clustering_file >> node_id >> cluster_id) {
-                if (this -> vertex_set.contains(node_id)) {
-                    partition_map[node_id] = cluster_id;
-                }
-                
-            }
-            return partition_map;
-        }
-
         static inline void ClusterQueueToMap(std::queue<std::vector<int>>& cluster_queue, std::map<int, int>& node_id_to_cluster_id_map) {
             int cluster_id = 0;
             while(!cluster_queue.empty()) {
@@ -153,12 +129,10 @@ class ConstrainedClustering {
 
         // currently keeps only those edges that go from within these clusters defined in the map
         static inline void RemoveInterClusterEdges(igraph_t* graph, const std::map<int,int>& node_id_to_cluster_id_map) {
-            // printf("inside rice_orig\n");
             igraph_vector_int_t edges_to_remove;
             igraph_vector_int_init(&edges_to_remove, 0);
             igraph_eit_t eit;
             igraph_eit_create(graph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
-            // printf("inside rice_orig es created");
             for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
                 igraph_integer_t current_edge = IGRAPH_EIT_GET(eit);
                 int from_node = IGRAPH_FROM(graph, current_edge);
@@ -167,7 +141,6 @@ class ConstrainedClustering {
                     && (node_id_to_cluster_id_map.at(from_node) == node_id_to_cluster_id_map.at(to_node))) {
                     // keep the edge
                 } else {
-                    // printf("rice from_node: %d cluster_id: %d to_node: %d cluster_id: %d\n", from_node, node_id_to_cluster_id_map.at(from_node), to_node, node_id_to_cluster_id_map.at(to_node));
                     igraph_vector_int_push_back(&edges_to_remove, IGRAPH_EIT_GET(eit));
                     /* std::cerr << "removing edge " << from_node << "-" << to_node << std::endl; */
                     /* if(node_id_to_cluster_id_map.contains(from_node) && node_id_to_cluster_id_map.contains(to_node)) { */
@@ -177,37 +150,12 @@ class ConstrainedClustering {
                     /* } */
                 }
             }
-            printf("edges to remove\n");
-	    //            igraph_vector_int_print(&edges_to_remove);
             igraph_es_t es;
             igraph_es_vector_copy(&es, &edges_to_remove);
             igraph_delete_edges(graph, es);
             igraph_eit_destroy(&eit);
             igraph_es_destroy(&es);
             igraph_vector_int_destroy(&edges_to_remove);
-        }
-
-        // currently keeps only those edges that go from within these clusters defined in the map
-        static inline igraph_vector_int_t RemoveInterClusterEdgesDistributed(igraph_t* graph, const std::map<int,int>& node_id_to_cluster_id_map) {
-            // printf("inside rice_orig\n");
-            igraph_vector_int_t edges_to_remove;
-            igraph_vector_int_init(&edges_to_remove, 0);
-            igraph_eit_t eit;
-            igraph_eit_create(graph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
-            // printf("inside rice_orig es created");
-            for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
-                igraph_integer_t current_edge = IGRAPH_EIT_GET(eit);
-                int from_node = IGRAPH_FROM(graph, current_edge);
-                int to_node = IGRAPH_TO(graph, current_edge);
-                if(node_id_to_cluster_id_map.contains(from_node) && node_id_to_cluster_id_map.contains(to_node)) {
-                    if (node_id_to_cluster_id_map.at(from_node) != node_id_to_cluster_id_map.at(to_node)) {
-                        igraph_vector_int_push_back(&edges_to_remove, IGRAPH_EIT_GET(eit));
-                    }
-                }
-            }
-            // printf("edges to remove\n");
-            // igraph_vector_int_print(&edges_to_remove);
-            return edges_to_remove;
         }
 
         static inline void RestoreInterClusterEdges(const igraph_t* original_graph, igraph_t* graph, const std::map<int,int>& node_id_to_cluster_id_map) {
@@ -384,7 +332,7 @@ class ConstrainedClustering {
                     edge_weights.push_back(current_edge_weight);
                 }
                 igraph_eit_destroy(&eit);
-		Graph* leiden_graph = Graph::GraphFromEdgeWeights(&graph, edge_weights);
+                Graph* leiden_graph = Graph::GraphFromEdgeWeights(&graph, edge_weights);
                 CPMVertexPartition partition(leiden_graph, clustering_parameter);
                 ConstrainedClustering::RunLeidenAndUpdatePartition(partition_map, &partition, seed, &graph);
             } else if(algorithm == "leiden-mod") {
@@ -410,34 +358,6 @@ class ConstrainedClustering {
         }
 
         static inline std::vector<std::vector<int>> GetConnectedComponents(igraph_t* graph_ptr) {
-            std::vector<std::vector<int>> connected_components_vector;
-            std::map<int, std::vector<int>> component_id_to_member_vector_map;
-            igraph_vector_int_t component_id_vector;
-            igraph_vector_int_init(&component_id_vector, 0);
-            igraph_vector_int_t membership_size_vector;
-            igraph_vector_int_init(&membership_size_vector, 0);
-            igraph_integer_t number_of_components;
-            igraph_connected_components(graph_ptr, &component_id_vector, &membership_size_vector, &number_of_components, IGRAPH_WEAK);
-            /* std::cerr << "num con comp: " << number_of_components << std::endl; */
-            for(int node_id = 0; node_id < igraph_vcount(graph_ptr); node_id ++) {
-                int current_component_id = VECTOR(component_id_vector)[node_id];
-                /* std::cerr << "component id: " << current_component_id << std::endl; */
-                /* std::cerr << "component size: " << VECTOR(membership_size_vector)[current_component_id] << std::endl; */
-                /* std::cerr << "graph node id: " << node_id << std::endl; */
-                /* std::cerr << "original node id: " << VAS(graph_ptr, "name", node_id) << std::endl; */
-                if(VECTOR(membership_size_vector)[current_component_id] > 1) {
-                    component_id_to_member_vector_map[current_component_id].push_back(node_id);
-                }
-            }
-            igraph_vector_int_destroy(&component_id_vector);
-            igraph_vector_int_destroy(&membership_size_vector);
-            for(auto const& [component_id, member_vector] : component_id_to_member_vector_map) {
-                connected_components_vector.push_back(member_vector);
-            }
-            return connected_components_vector;
-        }
-
-        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr) {
             std::vector<std::vector<int>> connected_components_vector;
             std::map<int, std::vector<int>> component_id_to_member_vector_map;
             igraph_vector_int_t component_id_vector;
@@ -532,21 +452,12 @@ class ConstrainedClustering {
         double clustering_parameter;
         std::string existing_clustering;
         int num_processors;
-        int my_rank;
-        int nprocs;
         std::string output_file;
         std::string log_file;
         std::chrono::steady_clock::time_point start_time;
         std::ofstream log_file_handle;
         int log_level;
         int num_calls_to_log_write;
-        int vertex_count;
-        int start_vertex;
-        int end_vertex;
-        igraph_vector_int_t edge_slice;
-        set<int> vertices_in_slice;
-        igraph_vector_int_t vertex_vec;
-        set<int> vertex_set;
 };
 
 #endif

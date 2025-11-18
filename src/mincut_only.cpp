@@ -96,7 +96,7 @@ int MincutOnly::main() {
         }
     } else {
         // store the results into the queue that each thread pulls from
-        for(size_t i = cc_start; i < cc_end; i ++) {
+        for(size_t i = 0; i < connected_components_vector.size(); i ++) {
             MincutOnly::to_be_mincut_clusters.push(connected_components_vector[i]);
         }
         while (true) {
