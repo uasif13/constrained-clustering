@@ -1,4 +1,5 @@
 #include "mincut_only.h"
+#include <mpi_telemetry.h>
 
 bool checkMC(int * arr, int arr_size) {
   for (int i = 0; i < arr_size; i++) {
@@ -8,6 +9,8 @@ bool checkMC(int * arr, int arr_size) {
   }
   return false;
 }
+
+int mincut_continue[100];
 
 int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
 
@@ -128,16 +131,11 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
         int previous_done_being_clustered_size = 0;
         int previous_cluster_id = 0;
         for (int i = 0; i < nprocs; i++) {
-        mincut_continue[i] = 1;
+            mincut_continue[i] = 1;
         }
         // store the results into the queue that each thread pulls from
         for(size_t i = 0; i < connected_components_vector.size(); i ++) {
             MincutOnly::to_be_mincut_clusters.push(connected_components_vector[i]);
-        }
-        int previous_done_being_clustered_size = 0;
-        int previous_cluster_id = 0;
-        for (int i = 0; i < nprocs; i++) {
-        mincut_continue[i] = 1;
         }
         while (checkMC(mincut_continue, nprocs)) {
             /* std::cerr << "iter num: " << std::to_string(iter_count) << std::endl; */
@@ -183,17 +181,17 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
                 mincut_continue[my_rank] = 1;
             }
             /** SECTION Check If All Clusters Are Well-Connected END **/
-            this->WriteToLogFile("my_rank: " + to_string(my_rank) + " Writing output to: " + this->output_file, Log::info, my_rank);
-            previous_cluster_id = this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id, iter_count, opCount);
-            int mincut_continue_mr = !CM::to_be_mincut_clusters.empty();
+            this->WriteToLogFile("my_rank: " + std::to_string(my_rank) + " Writing output to: " + this->output_file, Log::info, my_rank);
+            previous_cluster_id = this->WriteClusterQueueMPI(&MincutOnly::done_being_mincut_clusters, &graph, 0, previous_cluster_id, iter_count, opCount);
+            int mincut_continue_mr = !MincutOnly::to_be_mincut_clusters.empty();
             MPI_Allgather(&mincut_continue_mr, 1, MPI_INT, mincut_continue, 1, MPI_INT, MPI_COMM_WORLD);
             iter_count ++;
         }
     }
 
 
-    this->WriteToLogFile("Writing output to: " + this->output_file, Log::info);
-    this->WriteClusterQueue(MincutOnly::done_being_mincut_clusters, &graph, new_to_originial_id_map);
+    // this->WriteToLogFile("Writing output to: " + this->output_file, Log::info);
+    // this->WriteClusterQueue(MincutOnly::done_being_mincut_clusters, &graph, new_to_originial_id_map);
     igraph_destroy(&graph);
     return 0;
 }

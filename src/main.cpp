@@ -128,11 +128,11 @@ int main(int argc, char* argv[]) {
         int num_processors = mincut_only.get<int>("--num-processors");
         std::string output_file = mincut_only.get<std::string>("--output-file");
         std::string log_header = mincut_only.get<std::string>("--log-file");
-        std::stringlog_file = log_header+"_"+my_rank+".log";
+        std::string log_file = log_header+"_"+std::to_string(my_rank)+".log";
         mpi_log_file = log_header+"_mpi.log";
         int log_level = mincut_only.get<int>("--log-level") - 1; // so that enum is cleaner
         std::string connectedness_criterion = mincut_only.get<std::string>("--connectedness-criterion");
-        ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level);
+        ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level, my_rank, nprocs);
         random_functions::setSeed(0);
         mincut_only->main(my_rank, nprocs, opCount);
         delete mincut_only;

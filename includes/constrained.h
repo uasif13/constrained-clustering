@@ -24,7 +24,7 @@ enum ConnectednessCriterion {Simple, Logarithimic, Exponential};
 
 class ConstrainedClustering {
     public:
-        ConstrainedClustering(std::string edgelist, std::string algorithm, double clustering_parameter, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, int log_level) : edgelist(edgelist), algorithm(algorithm), clustering_parameter(clustering_parameter), existing_clustering(existing_clustering), num_processors(num_processors), output_file(output_file), log_file(log_file), log_level(log_level) {
+        ConstrainedClustering(std::string edgelist, std::string algorithm, double clustering_parameter, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, int log_level, int my_rank, int nprocs) : edgelist(edgelist), algorithm(algorithm), clustering_parameter(clustering_parameter), existing_clustering(existing_clustering), num_processors(num_processors), output_file(output_file), log_file(log_file), log_level(log_level), my_rank(my_rank), nprocs(nprocs) {
             if(this->log_level > -1) {
                 this->start_time = std::chrono::steady_clock::now();
                 this->log_file_handle.open(this->log_file);
@@ -38,8 +38,9 @@ class ConstrainedClustering {
             }
         }
 
-        virtual int main() = 0;
+        virtual int main(int my_rank, int nprocs, uint64_t * opCount) = 0;
         int WriteToLogFile(std::string message, Log message_type);
+        int WriteToLogFile(std::string message, Log message_type, int my_rank);
         void WritePartitionMap(std::map<int,int>& final_partition);
         void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph, const std::map<int, std::string>& new_to_original_id_map);
         int WriteClusterQueueMPI(std::queue<std::vector<int>>* cluster_queue, igraph_t* graph, int cluster_start, int previous_cluster_id, int iteration, uint64_t* opCount);
@@ -558,6 +559,8 @@ class ConstrainedClustering {
         std::ofstream log_file_handle;
         int log_level;
         int num_calls_to_log_write;
+        int my_rank;
+        int nprocs;
 };
 
 #endif

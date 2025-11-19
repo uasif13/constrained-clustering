@@ -2,6 +2,32 @@
 #include "mpi_telemetry.h"
 #include "igraph.h"
 
+void build_displacements_output_file(int * displacements, int* size_array, int nprocs) {
+    displacements[0] = 0;
+    for (int i = 1; i < nprocs; i ++) {
+        displacements[i] = displacements[i-1] + size_array[i-1];
+    }
+}
+
+int update_cluster_id_array(int * cluster_ids, int cluster_size, int previous_cluster_id, int* cluster_displacements, int nprocs)  {
+  int current_cluster = 0;
+  int updated_cluster = previous_cluster_id;
+  int count = 1;
+  for (int i = 0; i < cluster_size; i++) {
+    if (cluster_ids[i] > current_cluster) {
+        current_cluster = cluster_ids[i];
+        updated_cluster++;
+    } else if (nprocs > 1 && i == cluster_displacements[count]) {
+        count ++;
+        updated_cluster++;
+        current_cluster = 0;
+        // current_cluster = updated_cluster;
+    }
+    cluster_ids[i] =  updated_cluster;
+  }
+  return updated_cluster+1;
+}
+
 std::map<int, std::string> ConstrainedClustering::InvertMap(const std::map<std::string, int>& original_to_new_id_map) {
     std::map<int, std::string> new_to_original_id_map;
     for(auto const& [original_id, new_id] : original_to_new_id_map) {
@@ -148,7 +174,7 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
 
    // Send node_ids and cluster_ids to ROOT
     if (my_rank == 0) {
-        this -> WriteToLogFile("my_rank: " + to_string(my_rank) + " Write to cluster mpi file", Log::info, my_rank);
+        this -> WriteToLogFile("my_rank: " + std::to_string(my_rank) + " Write to cluster mpi file", Log::info, my_rank);
         std::ofstream mpi_clustering_output;
         mpi_clustering_output.open(this->output_file, std::ios_base::app);
         int node_id_arr_agg[node_cluster_id_agg_size];
@@ -208,6 +234,45 @@ int ConstrainedClustering::WriteToLogFile(std::string message, Log message_type)
         log_message_prefix += std::to_string(total_seconds_elapsed.count());
         log_message_prefix += "s)";
         this->log_file_handle << log_message_prefix << " " << message << '\n';
+
+        if(this->num_calls_to_log_write % 10 == 0) {
+            std::flush(this->log_file_handle);
+        }
+        this->num_calls_to_log_write ++;
+    }
+    return 0;
+}
+
+int ConstrainedClustering::WriteToLogFile(std::string message, Log message_type, int my_rank) {
+    if(this->log_level >= message_type) {
+        std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+        std::string log_message_prefix;
+        if(message_type == Log::info) {
+            log_message_prefix = "[INFO]";
+        } else if(message_type == Log::debug) {
+            log_message_prefix = "[DEBUG]";
+        } else if(message_type == Log::error) {
+            log_message_prefix = "[ERROR]";
+        }
+        auto days_elapsed = std::chrono::duration_cast<std::chrono::days>(now - this->start_time);
+        auto hours_elapsed = std::chrono::duration_cast<std::chrono::hours>(now - this->start_time - days_elapsed);
+        auto minutes_elapsed = std::chrono::duration_cast<std::chrono::minutes>(now - this->start_time - days_elapsed - hours_elapsed);
+        auto seconds_elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - this->start_time - days_elapsed - hours_elapsed - minutes_elapsed);
+        auto total_milliseconds_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - this->start_time);
+        log_message_prefix += "[";
+        log_message_prefix += std::to_string(days_elapsed.count());
+        log_message_prefix += "-";
+        log_message_prefix += std::to_string(hours_elapsed.count());
+        log_message_prefix += ":";
+        log_message_prefix += std::to_string(minutes_elapsed.count());
+        log_message_prefix += ":";
+        log_message_prefix += std::to_string(seconds_elapsed.count());
+        log_message_prefix += "]";
+
+        log_message_prefix += "(t=";
+        log_message_prefix += std::to_string(total_milliseconds_elapsed.count());
+        log_message_prefix += "ms)";
+        this->log_file_handle <<"my_rank: " << my_rank << " " << log_message_prefix << " " << message << '\n';
 
         if(this->num_calls_to_log_write % 10 == 0) {
             std::flush(this->log_file_handle);
