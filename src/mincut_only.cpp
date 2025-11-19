@@ -84,6 +84,9 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
     /* std::cerr << "num edges read: " << igraph_ecount(&graph)  << std::endl; */
     this->WriteToLogFile("Finished loading the initial graph" , Log::info);
 
+    this->WriteToLogFile("Read communities" , Log::info);
+
+
     int before_mincut_number_of_clusters = -1;
     int after_mincut_number_of_clusters = -2;
     int iter_count = 0;
@@ -100,13 +103,14 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
 
     /** SECTION Get Connected Components START **/
     //std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
+    this->WriteToLogFile("Get Connected Components" , Log::info);
     std::map<int,int> node_id_to_cluster_id_map;
     std::map<int, int> cluster_id_to_new_cluster_id_map;
     // node_id_to_cluster_id_map.reserve(2'000'000'000ULL * 1.1);   // 10% slack
     // cluster_id_to_new_cluster_id_map.reserve(10'000'000);  
     std::ifstream existing_clustering_file(this -> existing_clustering);
     
-    int node_id = 1;
+    std::string node_id = "";
     int cluster_id = 1;
     int cluster_id_new = 0;
     while (existing_clustering_file >> node_id >> cluster_id) {
@@ -114,14 +118,15 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
             cluster_id_to_new_cluster_id_map[cluster_id] = cluster_id_new;
             cluster_id_new++;
         }
-        node_id_to_cluster_id_map[node_id] = cluster_id_to_new_cluster_id_map[cluster_id];
+        node_id_to_cluster_id_map[original_to_new_id_map[node_id]] = cluster_id_to_new_cluster_id_map[cluster_id];
     }
     int cluster_size = (cluster_id_new)/nprocs;
     if ((cluster_id_new)%(nprocs) != 0) {
         cluster_size ++;
     }
 
-    std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, &node_id_to_cluster_id_map, cluster_size, my_rank, nprocs);    
+    // std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);    
+    std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, &node_id_to_cluster_id_map, &original_to_new_id_map, cluster_size, my_rank, nprocs);    
     /** SECTION Get Connected Components END **/
     if(current_connectedness_criterion == ConnectednessCriterion::Simple) {
         for(size_t i = 0; i < connected_components_vector.size(); i ++) {
@@ -173,6 +178,7 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
 
             /** SECTION Check If All Clusters Are Well-Connected START **/
             after_mincut_number_of_clusters = MincutOnly::to_be_mincut_clusters.size();
+
             if(after_mincut_number_of_clusters == 0) {
                 this->WriteToLogFile("all clusters are (well) connected", Log::info);
                 this->WriteToLogFile("Total number of iterations: " + std::to_string(iter_count + 1), Log::info);
@@ -182,7 +188,9 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
             }
             /** SECTION Check If All Clusters Are Well-Connected END **/
             this->WriteToLogFile("my_rank: " + std::to_string(my_rank) + " Writing output to: " + this->output_file, Log::info, my_rank);
-            previous_cluster_id = this->WriteClusterQueueMPI(&MincutOnly::done_being_mincut_clusters, &graph, 0, previous_cluster_id, iter_count, opCount);
+            this->WriteToLogFile(" Write to ClusterQueueMPI", Log::debug);
+
+            previous_cluster_id = this->WriteClusterQueueMPI(&MincutOnly::done_being_mincut_clusters, &graph, &new_to_originial_id_map, 0, previous_cluster_id, iter_count, opCount);
             int mincut_continue_mr = !MincutOnly::to_be_mincut_clusters.empty();
             MPI_Allgather(&mincut_continue_mr, 1, MPI_INT, mincut_continue, 1, MPI_INT, MPI_COMM_WORLD);
             iter_count ++;

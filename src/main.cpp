@@ -127,7 +127,7 @@ int main(int argc, char* argv[]) {
         std::string existing_clustering = mincut_only.get<std::string>("--existing-clustering");
         int num_processors = mincut_only.get<int>("--num-processors");
         std::string output_file = mincut_only.get<std::string>("--output-file");
-        std::string log_header = mincut_only.get<std::string>("--log-file");
+        std::string log_header = mincut_only.get<std::string>("--log-header");
         std::string log_file = log_header+"_"+std::to_string(my_rank)+".log";
         mpi_log_file = log_header+"_mpi.log";
         int log_level = mincut_only.get<int>("--log-level") - 1; // so that enum is cleaner

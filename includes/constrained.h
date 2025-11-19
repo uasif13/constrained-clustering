@@ -43,7 +43,7 @@ class ConstrainedClustering {
         int WriteToLogFile(std::string message, Log message_type, int my_rank);
         void WritePartitionMap(std::map<int,int>& final_partition);
         void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph, const std::map<int, std::string>& new_to_original_id_map);
-        int WriteClusterQueueMPI(std::queue<std::vector<int>>* cluster_queue, igraph_t* graph, int cluster_start, int previous_cluster_id, int iteration, uint64_t* opCount);
+        int WriteClusterQueueMPI(std::queue<std::vector<int>>* cluster_queue, igraph_t*  graph, std::map<int, std::string>* new_to_original_id_map, int cluster_start, int previous_cluster_id, int iteration, uint64_t* opCount);
 
         std::map<std::string, int> GetOriginalToNewIdMap(std::string edgelist);
         std::map<int, std::string> InvertMap(const std::map<std::string, int>& original_to_new_id_map);
@@ -388,7 +388,7 @@ class ConstrainedClustering {
             return connected_components_vector;
         }
 
-        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, std::map<int, int>* node_id_to_cluster_id_map, int cluster_size, int my_rank, int nprocs) {
+        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, std::map<int, int>* node_id_to_cluster_id_map, std::map<std::string, int>* original_to_new_id_map, int cluster_size, int my_rank, int nprocs) {
             std::vector<std::vector<int>> connected_components_vector;
             std::unordered_map<int, std::vector<int>> component_id_to_member_vector_map;
             igraph_vector_int_t component_id_vector;
@@ -396,7 +396,7 @@ class ConstrainedClustering {
             igraph_vector_int_t membership_size_vector;
             igraph_vector_int_init(&membership_size_vector, 0);
 
-            printf("my_rank: %d connected components algorithm start\n", my_rank);
+            // printf("my_rank: %d connected components algorithm start\n", my_rank);
             igraph_integer_t number_of_components;
             igraph_bitset_t already_added;
             igraph_dqueue_int_t q = IGRAPH_DQUEUE_NULL;
@@ -413,10 +413,8 @@ class ConstrainedClustering {
 
             //printf("my_rank: %d connected components algorithm initialized\n");
             for (int vertex = 0; vertex < no_of_vertices; ++vertex) {
-                if (!node_id_to_cluster_id_map ->contains(std::stoi(VAS(graph_ptr, "name",vertex)))) {
-                    continue;
-                }
-                if (node_id_to_cluster_id_map -> at(std::stoi(VAS(graph_ptr, "name",vertex)))/cluster_size != my_rank) {
+
+                if (node_id_to_cluster_id_map -> at(vertex)/cluster_size != my_rank) {
                     continue;
                 }
                 //printf("vertex to check connection: %d\n", vertex);
@@ -439,10 +437,7 @@ class ConstrainedClustering {
                     for (int i = 0; i < nei_count; i++) {
                         int neighbor = VECTOR(neis)[i];
                         // printf("neighbor inside queue: %d\n", neighbor);
-                        if (!node_id_to_cluster_id_map ->contains(std::stoi(VAS(graph_ptr, "name",neighbor)))) {
-                            continue;
-                        }
-                        if (node_id_to_cluster_id_map -> at(std::stoi(VAS(graph_ptr, "name",neighbor)))/cluster_size != my_rank) {
+                        if (node_id_to_cluster_id_map -> at(neighbor)/cluster_size != my_rank) {
                             continue;
                         }
                         if (IGRAPH_BIT_TEST(already_added, neighbor)) {
@@ -460,10 +455,7 @@ class ConstrainedClustering {
             // igraph_vector_int_print(&component_id_vector);
             /* std::cerr << "num con comp: " << number_of_components << std::endl; */
             for(int node_id = 0; node_id < igraph_vcount(graph_ptr); node_id ++) {
-                if (!node_id_to_cluster_id_map ->contains(std::stoi(VAS(graph_ptr, "name",node_id)))) {
-                    continue;
-                }
-                if (node_id_to_cluster_id_map -> at(std::stoi(VAS(graph_ptr, "name",node_id)))/cluster_size != my_rank) {
+                if (node_id_to_cluster_id_map -> at(node_id)/cluster_size != my_rank) {
                     continue;
                 }
                 int current_component_id = VECTOR(component_id_vector)[node_id];

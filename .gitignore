@@ -10,6 +10,6 @@ attachments.zip
 test.sh
 
 scripts/
-outputs/
+output/
 cc_logs/
 examples/
