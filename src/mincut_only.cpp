@@ -130,7 +130,7 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
     // std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);    
     std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, &node_id_to_cluster_id_map, &original_to_new_id_map, cluster_size, my_rank, nprocs);    
     /** SECTION Get Connected Components END **/
-    this->WriteToLogFile("Finished Getting Connected Components" , Log::info);
+    this->WriteToLogFile("Finished Getting Connected Components size: " + std::to_string(connected_components_vector.size()) , Log::info);
 
     if(current_connectedness_criterion == ConnectednessCriterion::Simple) {
         for(size_t i = 0; i < connected_components_vector.size(); i ++) {
