@@ -388,7 +388,7 @@ class ConstrainedClustering {
             return connected_components_vector;
         }
 
-        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, std::map<int, int>* node_id_to_cluster_id_map, std::map<std::string, int>* original_to_new_id_map, int cluster_size, int my_rank, int nprocs) {
+        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, std::map<int, int>* node_id_to_cluster_id_map, int cluster_size, int my_rank) {
             std::vector<std::vector<int>> connected_components_vector;
             std::unordered_map<int, std::vector<int>> component_id_to_member_vector_map;
             igraph_vector_int_t component_id_vector;
@@ -403,6 +403,7 @@ class ConstrainedClustering {
             igraph_vector_int_t neis = IGRAPH_VECTOR_NULL;
             int no_of_vertices = igraph_vcount(graph_ptr);
             igraph_vector_int_resize(&component_id_vector, no_of_vertices);
+
             for (int vertex = 0; vertex < no_of_vertices; ++vertex) {
                 VECTOR(component_id_vector)[vertex] = -1;
             }
@@ -410,6 +411,7 @@ class ConstrainedClustering {
             igraph_dqueue_int_init(&q, no_of_vertices > 100000 ? 10000: no_of_vertices);
             igraph_vector_int_init(&neis,0);
             int no_of_components = 0;
+            this -> WriteToLogFile("Connected Components Algorithms no_of_vertices: " + std::to_string(no_of_vertices),Log::debug);
 
             //printf("my_rank: %d connected components algorithm initialized\n");
             for (int vertex = 0; vertex < no_of_vertices; ++vertex) {
@@ -419,6 +421,8 @@ class ConstrainedClustering {
                 if (node_id_to_cluster_id_map -> at(vertex)/cluster_size != my_rank) {
                     continue;
                 }
+                this -> WriteToLogFile("Connected Components Algorithms current vertex: " + std::to_string(vertex),Log::debug);
+
                 //printf("vertex to check connection: %d\n", vertex);
                 int act_component_size;
                 if (IGRAPH_BIT_TEST(already_added, vertex)) {
@@ -428,7 +432,6 @@ class ConstrainedClustering {
                 act_component_size = 1;
                 VECTOR(component_id_vector)[vertex] = no_of_components;
                 igraph_dqueue_int_push(&q, vertex);
-
                 // printf("my_rank: %d connected components queue start\n", my_rank);
                 while (!igraph_dqueue_int_empty(&q)) {
                     int act_node = igraph_dqueue_int_pop(&q);
