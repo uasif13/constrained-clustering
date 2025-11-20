@@ -413,7 +413,9 @@ class ConstrainedClustering {
 
             //printf("my_rank: %d connected components algorithm initialized\n");
             for (int vertex = 0; vertex < no_of_vertices; ++vertex) {
-
+                if (!node_id_to_cluster_id_map -> contains(vertex)) {
+                    continue;
+                }
                 if (node_id_to_cluster_id_map -> at(vertex)/cluster_size != my_rank) {
                     continue;
                 }
@@ -437,6 +439,9 @@ class ConstrainedClustering {
                     for (int i = 0; i < nei_count; i++) {
                         int neighbor = VECTOR(neis)[i];
                         // printf("neighbor inside queue: %d\n", neighbor);
+                        if (!node_id_to_cluster_id_map -> contains(neighbor)) {
+                            continue;
+                        }
                         if (node_id_to_cluster_id_map -> at(neighbor)/cluster_size != my_rank) {
                             continue;
                         }
@@ -455,6 +460,9 @@ class ConstrainedClustering {
             // igraph_vector_int_print(&component_id_vector);
             /* std::cerr << "num con comp: " << number_of_components << std::endl; */
             for(int node_id = 0; node_id < igraph_vcount(graph_ptr); node_id ++) {
+                if (!node_id_to_cluster_id_map -> contains(node_id)) {
+                    continue;
+                }
                 if (node_id_to_cluster_id_map -> at(node_id)/cluster_size != my_rank) {
                     continue;
                 }

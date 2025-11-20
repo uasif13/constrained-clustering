@@ -103,6 +103,8 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
 
     /** SECTION Get Connected Components START **/
     //std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
+    this->WriteToLogFile("Finished reading communities" , Log::info);
+
     this->WriteToLogFile("Get Connected Components" , Log::info);
     std::map<int,int> node_id_to_cluster_id_map;
     std::map<int, int> cluster_id_to_new_cluster_id_map;
@@ -128,11 +130,15 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
     // std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);    
     std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, &node_id_to_cluster_id_map, &original_to_new_id_map, cluster_size, my_rank, nprocs);    
     /** SECTION Get Connected Components END **/
+    this->WriteToLogFile("Finished Getting Connected Components" , Log::info);
+
     if(current_connectedness_criterion == ConnectednessCriterion::Simple) {
         for(size_t i = 0; i < connected_components_vector.size(); i ++) {
             MincutOnly::done_being_mincut_clusters.push(connected_components_vector[i]);
         }
     } else {
+        this->WriteToLogFile("Start Mincut" , Log::info);
+
         int previous_done_being_clustered_size = 0;
         int previous_cluster_id = 0;
         for (int i = 0; i < nprocs; i++) {
