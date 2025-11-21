@@ -1,7 +1,6 @@
 #include "constrained.h"
 #include "mpi_telemetry.h"
 #include "igraph.h"
-#include <print>
 
 void build_displacements_output_file(int * displacements, int* size_array, int nprocs) {
     displacements[0] = 0;
