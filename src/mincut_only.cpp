@@ -66,6 +66,7 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
 
     /* FILE* edgelist_file = fopen(this->edgelist.c_str(), "r"); */
     std::map<std::string, int> original_to_new_id_map = this->GetOriginalToNewIdMap(this->edgelist);
+    printf("Original to New Id Map edgelist size: %d\n",original_to_new_id_map.size());
     std::map<int, std::string> new_to_originial_id_map = this->InvertMap(original_to_new_id_map);
     igraph_t graph;
     igraph_empty(&graph, 0, IGRAPH_UNDIRECTED);
@@ -83,6 +84,7 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
     /* std::cerr << "num nodes read: " << igraph_vcount(&graph)  << std::endl; */
     /* std::cerr << "num edges read: " << igraph_ecount(&graph)  << std::endl; */
     this->WriteToLogFile("Finished loading the initial graph with vertex count: " + std::to_string(igraph_vcount(&graph)) + " edge_count: " + std::to_string(igraph_ecount(&graph)) , Log::info);
+    printf("Finished loading the initial graph with vertex count: %d edge_count: %d\n",  igraph_vcount(&graph), igraph_ecount(&graph));
 
     this->WriteToLogFile("Read communities" , Log::info);
 
@@ -104,6 +106,8 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
     /** SECTION Get Connected Components START **/
     //std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
     this->WriteToLogFile("Finished reading communities size: " + std::to_string(new_node_id_to_cluster_id_map.size()) , Log::info);
+    printf("Finished reading communities size: %d\n",new_node_id_to_cluster_id_map.size());
+
 
     this->WriteToLogFile("Get Connected Components" , Log::info);
     std::map<int,int> node_id_to_cluster_id_map;
@@ -127,10 +131,14 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
         cluster_size ++;
     }
 
-    // std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);    
-    std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, &node_id_to_cluster_id_map, cluster_size, my_rank);    
+    std::vector<std::vector<int>> connected_components_vector; 
+
+    // ConstrainedClustering::GetConnectedComponents(&graph,&connected_components_vector);    
+    connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, &node_id_to_cluster_id_map, cluster_size, my_rank);    
     /** SECTION Get Connected Components END **/
     this->WriteToLogFile("Finished Getting Connected Components size: " + std::to_string(connected_components_vector.size()) , Log::info);
+    printf("Finished Getting Connected Components size: %d\n", connected_components_vector.size());
+
 
     if(current_connectedness_criterion == ConnectednessCriterion::Simple) {
         for(size_t i = 0; i < connected_components_vector.size(); i ++) {

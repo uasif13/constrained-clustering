@@ -1,6 +1,7 @@
 #include "constrained.h"
 #include "mpi_telemetry.h"
 #include "igraph.h"
+#include <print>
 
 void build_displacements_output_file(int * displacements, int* size_array, int nprocs) {
     displacements[0] = 0;
@@ -50,7 +51,10 @@ std::map<std::string, int> ConstrainedClustering::GetOriginalToNewIdMap(std::str
         std::stringstream ss(line);
         std::string current_value;
         std::vector<std::string> current_line;
+
         while(std::getline(ss, current_value, delimiter)) {
+            // printf("current_value %s\n", current_value.c_str());
+
             current_line.push_back(current_value);
         }
         if(line_no == 0) {
@@ -58,7 +62,8 @@ std::map<std::string, int> ConstrainedClustering::GetOriginalToNewIdMap(std::str
             continue;
         }
         std::string source = current_line[0];
-        std::string target = current_line[1];
+        std::string target = current_line[current_line.size()-1];
+        // printf("Source: %s Target: %s\n", source.c_str() , target.c_str());
         if (!original_to_new_id_map.contains(source)) {
             original_to_new_id_map[source] = next_node_id;
             next_node_id ++;
@@ -95,7 +100,7 @@ void ConstrainedClustering::LoadEdgesFromFile(igraph_t* graph, std::string edgel
             continue;
         }
         std::string source = current_line[0];
-        std::string target = current_line[1];
+        std::string target = current_line[current_line.size()-1];
         /* igraph_add_edge(graph, original_to_new_id_map.at(source), original_to_new_id_map.at(target)); */
         VECTOR(edges)[edge_index] = original_to_new_id_map.at(source);
         edge_index ++;

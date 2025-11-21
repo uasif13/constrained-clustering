@@ -87,17 +87,20 @@ class ConstrainedClustering {
             int line_no = 0;
             while(std::getline(existing_clustering_file, line)) {
                 std::stringstream ss(line);
+                // printf("line: %s \n", line.c_str());
+
                 std::string current_value;
                 std::vector<std::string> current_line;
                 while(std::getline(ss, current_value, delimiter)) {
                     current_line.push_back(current_value);
                 }
                 std::string node_id = current_line[0];
-                if(line_no == 0) {
-                    line_no ++;
-                    continue;
-                }
-                int cluster_id = std::atoi(current_line[1].c_str());
+                // if(line_no == 0) {
+                //     line_no ++;
+                //     continue;
+                // }
+                int cluster_id = std::atoi(current_line[current_line.size()-1].c_str());
+                // printf("node_id: %s cluster_id: %d\n", node_id.c_str(), cluster_id);
                 if(original_to_new_id_map.contains(node_id)) {
                     int new_node_id = original_to_new_id_map.at(node_id);
                     partition_map[new_node_id] = cluster_id;
@@ -360,6 +363,33 @@ class ConstrainedClustering {
             return partition_map;
         }
 
+        static inline void GetConnectedComponents(igraph_t* graph_ptr, std::vector<std::vector<int>>* connected_components_vector) {
+            std::map<int, std::vector<int>> component_id_to_member_vector_map;
+            igraph_vector_int_t component_id_vector;
+            igraph_vector_int_init(&component_id_vector, 0);
+            igraph_vector_int_t membership_size_vector;
+            igraph_vector_int_init(&membership_size_vector, 0);
+            igraph_integer_t number_of_components;
+            igraph_connected_components(graph_ptr, &component_id_vector, &membership_size_vector, &number_of_components, IGRAPH_WEAK);
+            printf("Finished Connected Components BFS: %d\n", number_of_components);    
+            /* std::cerr << "num con comp: " << number_of_components << std::endl; */
+            for(int node_id = 0; node_id < igraph_vcount(graph_ptr); node_id ++) {
+                int current_component_id = VECTOR(component_id_vector)[node_id];
+                /* std::cerr << "component id: " << current_component_id << std::endl; */
+                /* std::cerr << "component size: " << VECTOR(membership_size_vector)[current_component_id] << std::endl; */
+                /* std::cerr << "graph node id: " << node_id << std::endl; */
+                /* std::cerr << "original node id: " << VAS(graph_ptr, "name", node_id) << std::endl; */
+                if(VECTOR(membership_size_vector)[current_component_id] > 1) {
+                    component_id_to_member_vector_map[current_component_id].push_back(node_id);
+                }
+            }
+            igraph_vector_int_destroy(&component_id_vector);
+            igraph_vector_int_destroy(&membership_size_vector);
+            for(auto const& [component_id, member_vector] : component_id_to_member_vector_map) {
+                connected_components_vector->push_back(member_vector);
+            }
+        }
+
         static inline std::vector<std::vector<int>> GetConnectedComponents(igraph_t* graph_ptr) {
             std::vector<std::vector<int>> connected_components_vector;
             std::map<int, std::vector<int>> component_id_to_member_vector_map;
@@ -411,7 +441,9 @@ class ConstrainedClustering {
             igraph_dqueue_int_init(&q, no_of_vertices > 100000 ? 10000: no_of_vertices);
             igraph_vector_int_init(&neis,0);
             int no_of_components = 0;
-            this -> WriteToLogFile("Connected Components Algorithms no_of_vertices: " + std::to_string(no_of_vertices),Log::debug);
+            // this -> WriteToLogFile("Connected Components Algorithms no_of_vertices: " + std::to_string(no_of_vertices),Log::debug);
+            // printf("Connected Components Algorithms no_of_vertices: %d\n", no_of_vertices);
+
 
             //printf("my_rank: %d connected components algorithm initialized\n");
             for (int vertex = 0; vertex < no_of_vertices; ++vertex) {
@@ -421,7 +453,9 @@ class ConstrainedClustering {
                 if (node_id_to_cluster_id_map -> at(vertex)/cluster_size != my_rank) {
                     continue;
                 }
-                this -> WriteToLogFile("Connected Components Algorithms current vertex: " + std::to_string(vertex),Log::debug);
+                // this -> WriteToLogFile("Connected Components Algorithms current vertex: " + std::to_string(vertex),Log::debug);
+                // printf("Connected Components Algorithms current vertex: %d\n", vertex);
+
 
                 //printf("vertex to check connection: %d\n", vertex);
                 int act_component_size;
@@ -436,11 +470,20 @@ class ConstrainedClustering {
                 while (!igraph_dqueue_int_empty(&q)) {
                     int act_node = igraph_dqueue_int_pop(&q);
                     // printf("act_node inside queue: %d\n", act_node);
+                    // this -> WriteToLogFile("Connected Components Algorithms act_node: " + std::to_string(act_node),Log::debug);
 
+                    // igraph_vector_int_t eids;
+                    // igraph_incident(graph_ptr, &eids, act_node, IGRAPH_ALL, IGRAPH_NO_LOOPS);
                     igraph_neighbors(graph_ptr, &neis, act_node, IGRAPH_ALL, IGRAPH_NO_LOOPS, IGRAPH_MULTIPLE);
+                    // igraph_vector_int_print(&neis);
+                    // int eids_count = igraph_vector_int_size(&eids);
                     int nei_count = igraph_vector_int_size(&neis);
+                    // printf("nei_count inside queue: %d\n", nei_count);
+                    // this -> WriteToLogFile("Connected Components Algorithms nei_count: " + std::to_string(nei_count),Log::debug);
+
                     for (int i = 0; i < nei_count; i++) {
                         int neighbor = VECTOR(neis)[i];
+                        
                         // printf("neighbor inside queue: %d\n", neighbor);
                         if (!node_id_to_cluster_id_map -> contains(neighbor)) {
                             continue;
@@ -451,6 +494,8 @@ class ConstrainedClustering {
                         if (IGRAPH_BIT_TEST(already_added, neighbor)) {
                             continue;
                         }
+                        // printf("Connected Components Algorithms current neighbor: %d\n", neighbor);
+
                         igraph_dqueue_int_push(&q, neighbor);
                         IGRAPH_BIT_SET(already_added, neighbor);
                         act_component_size++;
@@ -460,6 +505,8 @@ class ConstrainedClustering {
                 no_of_components++;
                 igraph_vector_int_push_back(&membership_size_vector, act_component_size);
             }
+            // printf("Connected Components Algorithms number of components: %d\n", no_of_components);
+
             // igraph_vector_int_print(&component_id_vector);
             /* std::cerr << "num con comp: " << number_of_components << std::endl; */
             for(int node_id = 0; node_id < igraph_vcount(graph_ptr); node_id ++) {
