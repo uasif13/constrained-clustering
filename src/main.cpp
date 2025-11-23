@@ -77,6 +77,10 @@ int main(int argc, char* argv[]) {
         .default_value(int(1))
         .help("Log level where 0 = silent, 1 = info, 2 = verbose")
         .scan<'d', int>();
+    mincut_only.add_argument("--thread-coarsening")
+        .default_value(int(2))
+        .help("Number of connected components per thread")
+        .scan<'d',int>();
 
 /*         The two functional forms would be: */
 /* F(n) = C log_x(n), where C and x are parameters specified by the user (our default is C=1 and x=10) */
@@ -131,8 +135,9 @@ int main(int argc, char* argv[]) {
         std::string log_file = log_header+"_"+std::to_string(my_rank)+".log";
         mpi_log_file = log_header+"_mpi.log";
         int log_level = mincut_only.get<int>("--log-level") - 1; // so that enum is cleaner
+        int thread_coarsening = mincut_only.get<int>("--thread-coarsening");
         std::string connectedness_criterion = mincut_only.get<std::string>("--connectedness-criterion");
-        ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level, my_rank, nprocs);
+        ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level, my_rank, nprocs, thread_coarsening);
         random_functions::setSeed(0);
         mincut_only->main(my_rank, nprocs, opCount);
         delete mincut_only;

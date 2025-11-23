@@ -362,34 +362,7 @@ class ConstrainedClustering {
             }
             return partition_map;
         }
-
-        static inline void GetConnectedComponents(igraph_t* graph_ptr, std::vector<std::vector<int>>* connected_components_vector) {
-            std::map<int, std::vector<int>> component_id_to_member_vector_map;
-            igraph_vector_int_t component_id_vector;
-            igraph_vector_int_init(&component_id_vector, 0);
-            igraph_vector_int_t membership_size_vector;
-            igraph_vector_int_init(&membership_size_vector, 0);
-            igraph_integer_t number_of_components;
-            igraph_connected_components(graph_ptr, &component_id_vector, &membership_size_vector, &number_of_components, IGRAPH_WEAK);
-            printf("Finished Connected Components BFS: %d\n", number_of_components);    
-            /* std::cerr << "num con comp: " << number_of_components << std::endl; */
-            for(int node_id = 0; node_id < igraph_vcount(graph_ptr); node_id ++) {
-                int current_component_id = VECTOR(component_id_vector)[node_id];
-                /* std::cerr << "component id: " << current_component_id << std::endl; */
-                /* std::cerr << "component size: " << VECTOR(membership_size_vector)[current_component_id] << std::endl; */
-                /* std::cerr << "graph node id: " << node_id << std::endl; */
-                /* std::cerr << "original node id: " << VAS(graph_ptr, "name", node_id) << std::endl; */
-                if(VECTOR(membership_size_vector)[current_component_id] > 1) {
-                    component_id_to_member_vector_map[current_component_id].push_back(node_id);
-                }
-            }
-            igraph_vector_int_destroy(&component_id_vector);
-            igraph_vector_int_destroy(&membership_size_vector);
-            for(auto const& [component_id, member_vector] : component_id_to_member_vector_map) {
-                connected_components_vector->push_back(member_vector);
-            }
-        }
-
+        
         static inline std::vector<std::vector<int>> GetConnectedComponents(igraph_t* graph_ptr) {
             std::vector<std::vector<int>> connected_components_vector;
             std::map<int, std::vector<int>> component_id_to_member_vector_map;
@@ -446,11 +419,18 @@ class ConstrainedClustering {
 
 
             //printf("my_rank: %d connected components algorithm initialized\n");
+            // int assigned_cluster_start = cluster_size_arr[my_rank];
+            // int assigned_cluster_end = cluster_size_arr[my_rank+1];
+            int cluster_id_vertex = 0;
             for (int vertex = 0; vertex < no_of_vertices; ++vertex) {
                 if (!node_id_to_cluster_id_map -> contains(vertex)) {
                     continue;
                 }
-                if (node_id_to_cluster_id_map -> at(vertex)/cluster_size != my_rank) {
+                // cluster_id_vertex = node_id_to_cluster_id_map -> at(vertex);
+                // if (cluster_id_vertex < assigned_cluster_start && cluster_id_vertex > assigned_cluster_end) {
+                //     continue;
+                // }
+                if (node_id_to_cluster_id_map -> at(vertex) /cluster_size != my_rank) {
                     continue;
                 }
                 // this -> WriteToLogFile("Connected Components Algorithms current vertex: " + std::to_string(vertex),Log::debug);
@@ -480,6 +460,7 @@ class ConstrainedClustering {
                     int nei_count = igraph_vector_int_size(&neis);
                     // printf("nei_count inside queue: %d\n", nei_count);
                     // this -> WriteToLogFile("Connected Components Algorithms nei_count: " + std::to_string(nei_count),Log::debug);
+                    int cluster_id_neighbor = 0;
 
                     for (int i = 0; i < nei_count; i++) {
                         int neighbor = VECTOR(neis)[i];
@@ -488,7 +469,11 @@ class ConstrainedClustering {
                         if (!node_id_to_cluster_id_map -> contains(neighbor)) {
                             continue;
                         }
-                        if (node_id_to_cluster_id_map -> at(neighbor)/cluster_size != my_rank) {
+                        // cluster_id_neighbor = node_id_to_cluster_id_map -> at(neighbor);
+                        // if (cluster_id_neighbor < assigned_cluster_start && cluster_id_neighbor >= assigned_cluster_end) {
+                        //     continue;
+                        // }
+                        if (node_id_to_cluster_id_map -> at(neighbor) /cluster_size != my_rank) {
                             continue;
                         }
                         if (IGRAPH_BIT_TEST(already_added, neighbor)) {
@@ -509,13 +494,19 @@ class ConstrainedClustering {
 
             // igraph_vector_int_print(&component_id_vector);
             /* std::cerr << "num con comp: " << number_of_components << std::endl; */
+            int cluster_id_node_id = 0;
             for(int node_id = 0; node_id < igraph_vcount(graph_ptr); node_id ++) {
                 if (!node_id_to_cluster_id_map -> contains(node_id)) {
                     continue;
                 }
-                if (node_id_to_cluster_id_map -> at(node_id)/cluster_size != my_rank) {
+                // cluster_id_node_id = node_id_to_cluster_id_map -> at(node_id);
+                // if (cluster_id_node_id < assigned_cluster_start && cluster_id_node_id >= assigned_cluster_end) {
+                //     continue;
+                // }
+                if (node_id_to_cluster_id_map -> at(node_id) /cluster_size != my_rank) {
                     continue;
                 }
+
                 int current_component_id = VECTOR(component_id_vector)[node_id];
                 /* std::cerr << "component id: " << current_component_id << std::endl; */
                 /* std::cerr << "component size: " << VECTOR(membership_size_vector)[current_component_id] << std::endl; */
@@ -527,12 +518,18 @@ class ConstrainedClustering {
             }
             igraph_vector_int_destroy(&component_id_vector);
             igraph_vector_int_destroy(&membership_size_vector);
+            int nodes_in_partitions = 0;
+
             for(auto const& [component_id, member_vector] : component_id_to_member_vector_map) {
                 if (component_id != -1) {
                     // output_vec_cc(member_vector, graph_ptr);
+                    nodes_in_partitions += member_vector.size();
+
                     connected_components_vector.push_back(member_vector);
                 }
             }
+            printf("my_rank: %d nodes_in_partition: %d\n", my_rank, nodes_in_partitions);
+
             return connected_components_vector;
         }
 

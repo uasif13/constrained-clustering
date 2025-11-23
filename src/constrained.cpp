@@ -1,6 +1,15 @@
 #include "constrained.h"
 #include "mpi_telemetry.h"
 #include "igraph.h"
+#include <iostream>
+
+template<typename T>
+void output_arr(T* arr, int arr_size) {
+    for (int i = 0; i < arr_size; i ++) {
+        std::cout << arr[i] << " ";
+    }
+    std::cout << "\n";
+}
 
 void build_displacements_output_file(int * displacements, int* size_array, int nprocs) {
     displacements[0] = 0;
@@ -138,8 +147,10 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
 
     int v_count = igraph_vcount(graph);
     int node_id_arr[v_count];
-    int cluster_id_arr[v_count];
+    // int cluster_id_arr[2*v_count];
+    vector<int> cluster_id_vec;
     int index_count = 0;
+    // printf("vertices in graph %d\n", v_count);
 
     // Write to individual cluster files
     this->WriteToLogFile("final clusters:", Log::debug, my_rank);
@@ -150,14 +161,22 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
         this->WriteToLogFile("new cluster size: " + std::to_string(current_cluster.size()), Log::debug, my_rank);
         for(size_t i = 0; i < current_cluster.size(); i ++) {
             this->WriteToLogFile(std::to_string(current_cluster[i]), Log::debug, my_rank);
+            // printf("cluster element: %d\n", current_cluster[i]);
+
             // clustering_output << VAS(graph, "name", current_cluster[i]) << " " << current_cluster_id << '\n';
+            // printf("inside for loop index_count: %d current_cluster_id %d\n", index_count, current_cluster_id);
+
             node_id_arr[index_count] = stoi(new_to_original_id_map ->at(current_cluster[i]));
-            cluster_id_arr[index_count] = current_cluster_id;
+            // cluster_id_arr[index_count] = current_cluster_id;
+            cluster_id_vec.push_back(current_cluster_id);
             index_count++;
 
         }
+        // printf("index_count: %d current_cluster_id %d\n", index_count, current_cluster_id);
+
         current_cluster_id ++;
     }
+    // printf("%d size of current_cluster_id\n", current_cluster_id);
     // Write to aggregate cluster file
     int index_count_arr[nprocs];
     int cluster_displacements[nprocs];
@@ -167,9 +186,9 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
     // Send index counts to ROOT
     if (my_rank == 0) {
       MPI_Gather(&index_count, 1, MPI_INT, index_count_arr, 1, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 3, opCount);
-      //output_arr(index_count_arr, nprocs);
+    //   output_arr(index_count_arr, nprocs);
       build_displacements_output_file(cluster_displacements, index_count_arr, nprocs);
-      //output_arr(cluster_displacements, nprocs);
+    //   output_arr(cluster_displacements, nprocs);
       node_cluster_id_agg_size = cluster_displacements[nprocs-1]+index_count_arr[nprocs-1];
 
     } else {
@@ -186,7 +205,9 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
         int node_id_arr_agg[node_cluster_id_agg_size];
         int cluster_id_arr_agg[node_cluster_id_agg_size];
         MPI_Gatherv(node_id_arr, index_count, MPI_INT,node_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 4, opCount);
-        MPI_Gatherv(cluster_id_arr, index_count, MPI_INT, cluster_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 4, opCount);
+        // printf("Finished Node id arr gatherv\n");
+
+        MPI_Gatherv(&cluster_id_vec.front(), index_count, MPI_INT, cluster_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 4, opCount);
         previous_cluster_id = update_cluster_id_array(cluster_id_arr_agg, node_cluster_id_agg_size, previous_cluster_id, cluster_displacements, nprocs);
         for (int i = 0; i < node_cluster_id_agg_size; i++) {
             mpi_clustering_output << node_id_arr_agg[i] << "," << cluster_id_arr_agg[i] << "\n";
@@ -194,7 +215,7 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
         mpi_clustering_output.close();
     } else {
       MPI_Gatherv(node_id_arr, index_count, MPI_INT, NULL, NULL, NULL, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 4, opCount);
-      MPI_Gatherv(cluster_id_arr, index_count, MPI_INT, NULL, NULL, NULL, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 4, opCount);
+      MPI_Gatherv(&cluster_id_vec.front(), index_count, MPI_INT, NULL, NULL, NULL, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 4, opCount);
     }
 
     // Broadcast previous_cluster_id

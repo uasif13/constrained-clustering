@@ -71,7 +71,7 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
     igraph_t graph;
     igraph_empty(&graph, 0, IGRAPH_UNDIRECTED);
     /* igraph_set_attribute_table(&igraph_cattribute_table); */
-    /* igraph_read_graph_ncol(&graph, edgelist_file, NULL, 1, IGRAPH_ADD_WEIGHTS_IF_PRESENT, IGRAPH_UNDIRECTED); */
+    // igraph_read_graph_ncol(&graph, edgelist_file, NULL, 1, IGRAPH_ADD_WEIGHTS_IF_PRESENT, IGRAPH_UNDIRECTED);
     this->LoadEdgesFromFile(&graph, this->edgelist, original_to_new_id_map);
     /* igraph_read_graph_edgelist(&graph, edgelist_file, 0, false); */
     /* igraph_attribute_combination_t comb; */
@@ -83,8 +83,10 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
     /* fclose(edgelist_file); */
     /* std::cerr << "num nodes read: " << igraph_vcount(&graph)  << std::endl; */
     /* std::cerr << "num edges read: " << igraph_ecount(&graph)  << std::endl; */
+    int no_of_vertices = igraph_vcount(&graph);
+    int no_of_edges = igraph_ecount(&graph);
     this->WriteToLogFile("Finished loading the initial graph with vertex count: " + std::to_string(igraph_vcount(&graph)) + " edge_count: " + std::to_string(igraph_ecount(&graph)) , Log::info);
-    printf("Finished loading the initial graph with vertex count: %d edge_count: %d\n",  igraph_vcount(&graph), igraph_ecount(&graph));
+    printf("Finished loading the initial graph with vertex count: %d edge_count: %d\n",  no_of_vertices, no_of_edges);
 
     this->WriteToLogFile("Read communities" , Log::info);
 
@@ -119,12 +121,28 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
     std::string node_id = "";
     int cluster_id = 1;
     int cluster_id_new = 0;
+    // int cluster_size_arr[nprocs+1];
+    // cluster_size_arr[0] = 0;
+    // int cluster_node_count = 0;
+    // int cluster_size_arr_index = 1;
+    // bool assign_cluster = false;
+    // int estimated_nodes_in_partition = no_of_vertices/nprocs;
+    // estimated_nodes_in_partition++;
     while (existing_clustering_file >> node_id >> cluster_id) {
         if (!cluster_id_to_new_cluster_id_map.contains(cluster_id)) {
+            // if (assign_cluster) {
+            //     cluster_size_arr[cluster_size_arr_index] = cluster_id_new;
+            //     assign_cluster = false;
+            //     cluster_node_count = 0;
+            // }
             cluster_id_to_new_cluster_id_map[cluster_id] = cluster_id_new;
             cluster_id_new++;
         }
         node_id_to_cluster_id_map[original_to_new_id_map[node_id]] = cluster_id_to_new_cluster_id_map[cluster_id];
+        // cluster_node_count++;
+        // if (cluster_node_count > estimated_nodes_in_partition) {
+        //     assign_cluster = true;
+        // }
     }
     int cluster_size = (cluster_id_new)/nprocs;
     if ((cluster_id_new)%(nprocs) != 0) {
@@ -133,7 +151,8 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
 
     std::vector<std::vector<int>> connected_components_vector; 
 
-    // ConstrainedClustering::GetConnectedComponents(&graph,&connected_components_vector);    
+    // ConstrainedClustering::GetConnectedComponents(&graph,&connected_components_vector);  
+    printf("my_rank: %d Total clusters: %d Cluster size: %d\n",my_rank, cluster_id_new, cluster_size);  
     connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, &node_id_to_cluster_id_map, cluster_size, my_rank);    
     /** SECTION Get Connected Components END **/
     this->WriteToLogFile("Finished Getting Connected Components size: " + std::to_string(connected_components_vector.size()) , Log::info);
@@ -165,6 +184,8 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
             }
 
             /** SECTION MinCut Each Connected Component START **/
+            // printf("%d [connected components / clusters] to be mincut\n",MincutOnly::to_be_mincut_clusters.size());
+
             this->WriteToLogFile(std::to_string(MincutOnly::to_be_mincut_clusters.size()) + " [connected components / clusters] to be mincut", Log::debug);
             before_mincut_number_of_clusters = MincutOnly::to_be_mincut_clusters.size();
             /* if a thread gets a cluster {-1}, then they know processing is done and they can stop working */
@@ -176,7 +197,7 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
                 }
                 std::vector<std::thread> thread_vector;
                 for(int i = 0; i < this->num_processors; i ++) {
-                    thread_vector.push_back(std::thread(MincutOnly::MinCutWorker, &graph, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log));
+                    thread_vector.push_back(std::thread(MincutOnly::MinCutWorker, &graph, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, this->thread_coarsening));
                 }
                 /* get the result back from threads */
                 /* the results from each thread gets stored in to_be_clustered_clusters */
@@ -185,8 +206,10 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
                 }
             } else {
                 MincutOnly::to_be_mincut_clusters.push({-1});
-                MincutOnly::MinCutWorker(&graph, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log);
+                MincutOnly::MinCutWorker(&graph, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, this -> thread_coarsening);
             }
+            MPI_Barrier(my_rank, iter_count, 5, opCount);
+
             this->WriteToLogFile(std::to_string(MincutOnly::to_be_mincut_clusters.size()) + " [connected components / clusters] to be mincut after a round of mincuts", Log::debug);
             /** SECTION MinCut Each Connected Component END **/
 
