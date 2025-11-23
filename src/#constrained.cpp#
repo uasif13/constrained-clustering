@@ -56,10 +56,10 @@ std::map<std::string, int> ConstrainedClustering::GetOriginalToNewIdMap(std::str
 
             current_line.push_back(current_value);
         }
-        /*if(line_no == 0) {
+        if(line_no == 0) {
             line_no ++;
             continue;
-	    }*/
+        }
         std::string source = current_line[0];
         std::string target = current_line[current_line.size()-1];
         // printf("Source: %s Target: %s\n", source.c_str() , target.c_str());
