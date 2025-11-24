@@ -3,6 +3,8 @@
 #include "constrained.h"
 #include "mincut_recursive.h"
 
+
+
 class MincutOnly : public ConstrainedClustering
 {
 public:
@@ -43,12 +45,12 @@ public:
 
     static inline void ComputeMinCutRecursive(const vector<int> current_cluster, const igraph_t *original_graph, ConnectednessCriterion current_connectedness_criterion, double connectedness_criterion_c, double connectedness_criterion_x, double pre_computed_log, int depth)
     {
-        if (current_cluster.size() == 1 || current_cluster[0] == -1)
-        {
-            // done with work!
-            /* std::cerr << "thread done" << std::endl; */
-            return;
-        }
+        // if (current_cluster.size() == 1 || current_cluster[0] == -1)
+        // {
+        //     // done with work!
+        //     /* std::cerr << "thread done" << std::endl; */
+        //     return;
+        // }
         igraph_vector_int_t nodes_to_keep;
         igraph_vector_int_t new_id_to_old_id_map;
         igraph_vector_int_init(&new_id_to_old_id_map, current_cluster.size());
@@ -73,33 +75,44 @@ public:
 
         igraph_vector_int_destroy(&nodes_to_keep);
 
-        // printf("induced subgraph no_of_vertices: %d\n", igraph_vcount(&induced_subgraph));
+        // printf("depth: %d induced subgraph no_of_vertices: %d\n", depth, igraph_vcount(&induced_subgraph));
         MinCutCustom mcc(&induced_subgraph);
         int edge_cut_size = mcc.ComputeMinCut();
         std::vector<int> in_partition = mcc.GetInPartition();
         std::vector<int> out_partition = mcc.GetOutPartition();
+        // printf("mincut results edge_cut_size: %d in_partition_size: %d out_partition_size: %d\n", edge_cut_size, in_partition.size(), out_partition.size());
         bool current_criterion = ConstrainedClustering::IsWellConnected(current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, in_partition.size(), out_partition.size(), edge_cut_size);
 
-        printf("current_criterion: %d\n", current_criterion);
+        // printf("current_criterion: %d\n", current_criterion);
 
         // base case
         if (current_criterion)
         {
             igraph_destroy(&induced_subgraph);
             igraph_vector_int_destroy(&new_id_to_old_id_map);
-            printf("cluster is well connected size: %d\n", current_cluster.size());
-           
-                // std::lock_guard<std::mutex> to_be_mincut_guard(MincutOnly::to_be_mincut_mutex);
+            // printf("cluster is well connected size: %d\n", current_cluster.size());
             MincutOnly::done_being_mincut_clusters.push(current_cluster);
+
+            // std::unique_lock<std::mutex> lk(cv_m);
+            // std::cerr << "Waiting... \n";
+            // cv.wait(lk, []{ return i == 1; });
+            // std::cerr << "...finished waiting. i == 1\n";
+           
+            // std::unique_lock<std::mutex> done_being_mincut_lock{MincutOnly::done_being_mincut_mutex};
+            // MincutOnly::done_being_mincut_clusters.push(current_cluster);
+
+            // done_being_mincut_lock.unlock();
 
         }
         else
         {
-            printf("cluster is not well connected depth %d\n",depth);
+            // printf("cluster is not well connected depth %d\n",depth);
             if (in_partition.size() > 1)
             {
+                // printf("in_partition depth %d\n",depth);
+
                 std::vector<std::vector<int>> in_clusters = GetConnectedComponentsOnPartition(&induced_subgraph, in_partition);
-                igraph_destroy(&induced_subgraph);
+                // igraph_destroy(&induced_subgraph);
                 for (size_t i = 0; i < in_clusters.size(); i++)
                 {
                     std::vector<int> translated_in_clusters;
@@ -107,14 +120,17 @@ public:
                     {
                         translated_in_clusters.push_back(VECTOR(new_id_to_old_id_map)[in_clusters[i][j]]);
                     }
-                    igraph_vector_int_destroy(&new_id_to_old_id_map);
-                    ComputeMinCutRecursive(translated_in_clusters, original_graph, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, depth+1);
+                    std::thread in = std::thread(MincutOnly::ComputeMinCutRecursive,translated_in_clusters, original_graph, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, depth+1);
+                    in.join();
                 }
+                // igraph_vector_int_destroy(&new_id_to_old_id_map);
             }
             if (out_partition.size() > 1)
             {
+                // printf("out_partition depth %d\n",depth);
+
                 std::vector<std::vector<int>> out_clusters = GetConnectedComponentsOnPartition(&induced_subgraph, out_partition);
-                igraph_destroy(&induced_subgraph);
+                // igraph_destroy(&induced_subgraph);
                 for (size_t i = 0; i < out_clusters.size(); i++)
                 {
                     std::vector<int> translated_out_clusters;
@@ -122,11 +138,12 @@ public:
                     {
                         translated_out_clusters.push_back(VECTOR(new_id_to_old_id_map)[out_clusters[i][j]]);
                     }
-                    igraph_vector_int_destroy(&new_id_to_old_id_map);
-                    ComputeMinCutRecursive(translated_out_clusters, original_graph, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, depth+1);
+                    std::thread out = std::thread(MincutOnly::ComputeMinCutRecursive,translated_out_clusters, original_graph, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, depth+1);
+                    out.join();
+
                 }
+                // igraph_vector_int_destroy(&new_id_to_old_id_map);
             }
-            return;
         }
     }
 
@@ -266,6 +283,9 @@ private:
     static inline std::queue<std::vector<int>> done_being_mincut_clusters;
     std::string connectedness_criterion;
     int thread_coarsening;
+    static inline std::condition_variable cv;
+    static inline std::mutex cv_m; 
+    static inline int waiting = 0;
 };
 
 #endif

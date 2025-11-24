@@ -201,7 +201,8 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
     if (my_rank == 0) {
         this -> WriteToLogFile("my_rank: " + std::to_string(my_rank) + " Write to cluster mpi file", Log::info, my_rank);
         std::ofstream mpi_clustering_output;
-        mpi_clustering_output.open(this->output_file, std::ios_base::app);
+        mpi_clustering_output.open(this->output_file);
+        // mpi_clustering_output.open(this->output_file, std::ios_base::app);
         int node_id_arr_agg[node_cluster_id_agg_size];
         int cluster_id_arr_agg[node_cluster_id_agg_size];
         MPI_Gatherv(node_id_arr, index_count, MPI_INT,node_id_arr_agg, index_count_arr, cluster_displacements, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 4, opCount);
