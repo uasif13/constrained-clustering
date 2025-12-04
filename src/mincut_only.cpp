@@ -220,7 +220,7 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t * opCount) {
         //     MincutOnly::MinCutWorker(&graph, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, this -> thread_coarsening);
         // }
         // MPI_Barrier(my_rank, iter_count, 5, opCount);
-        PMPI_Barrier(my_rank, iter_count, 5, opCount);
+        PMPI_Barrier(MPI_COMM_WORLD);
 
         this->WriteToLogFile(std::to_string(MincutOnly::done_being_mincut_clusters.size())+ " [connected components / clusters] mincut after a round of mincuts", Log::debug);
 
