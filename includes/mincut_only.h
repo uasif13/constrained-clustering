@@ -91,17 +91,17 @@ public:
             igraph_destroy(&induced_subgraph);
             igraph_vector_int_destroy(&new_id_to_old_id_map);
             // printf("cluster is well connected size: %d\n", current_cluster.size());
-            MincutOnly::done_being_mincut_clusters.push(current_cluster);
+            // MincutOnly::done_being_mincut_clusters.push(current_cluster);
 
             // std::unique_lock<std::mutex> lk(cv_m);
             // std::cerr << "Waiting... \n";
             // cv.wait(lk, []{ return i == 1; });
             // std::cerr << "...finished waiting. i == 1\n";
            
-            // std::unique_lock<std::mutex> done_being_mincut_lock{MincutOnly::done_being_mincut_mutex};
-            // MincutOnly::done_being_mincut_clusters.push(current_cluster);
+            std::unique_lock<std::mutex> done_being_mincut_lock{MincutOnly::done_being_mincut_mutex};
+            MincutOnly::done_being_mincut_clusters.push(current_cluster);
 
-            // done_being_mincut_lock.unlock();
+            done_being_mincut_lock.unlock();
 
         }
         else
