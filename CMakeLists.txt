@@ -37,10 +37,11 @@ else()
     set(SOURCE_MAIN ${CMAKE_SOURCE_DIR}/src/main.cpp)
     set(SOURCE_INTERNAL_LIBS
         ${CMAKE_SOURCE_DIR}/src/constrained.cpp
-        # ${CMAKE_SOURCE_DIR}/src/cm.cpp
+        ${CMAKE_SOURCE_DIR}/src/cm.cpp
         ${CMAKE_SOURCE_DIR}/src/mincut_only.cpp
         ${CMAKE_SOURCE_DIR}/src/mincut_custom.cpp
         ${CMAKE_SOURCE_DIR}/external_libs/VieCut/extlib/tlx/tlx/logger.cpp
+	${CMAKE_SOURCE_DIR}/src/GraphHelper.cpp
     )
     #[[ CONSTANTS END ]]
 
@@ -56,6 +57,8 @@ else()
         PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/VieCut/lib
         PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/VieCut/extlib/tlx
         PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/pcg-cpp/include
+	PUBLIC ${CMAKE_SOURCE_DIR}/external_libs/include
+	
     )
     target_link_libraries(internal_libs PUBLIC igraph::igraph)
     target_link_libraries(internal_libs PUBLIC libleidenalg::libleidenalg)
@@ -65,6 +68,7 @@ else()
     #[[ Link libraries ]]
     add_subdirectory(libs)
     target_link_libraries(constrained_clustering PUBLIC external_libs)
+    add_definitions(-w)
 
     #[[ Link external libraries ]]
 endif("${CMAKE_BINARY_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")

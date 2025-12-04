@@ -3,10 +3,11 @@
 #include "constrained.h"
 
 
+enum ConnectednessCriterion {Simple, Well};
 
 class MincutOnly : public ConstrainedClustering {
     public:
-        MincutOnly(std::string edgelist, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, std::string connectedness_criterion, int log_level) : ConstrainedClustering(edgelist, "", -1, existing_clustering, num_processors, output_file, log_file, log_level), connectedness_criterion(connectedness_criterion) {
+        MincutOnly(std::string edgelist, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, ConnectednessCriterion connectedness_criterion, int log_level) : ConstrainedClustering(edgelist, "", -1, existing_clustering, num_processors, output_file, log_file, log_level), connectedness_criterion(connectedness_criterion) {
         };
         int main() override;
 
@@ -36,7 +37,7 @@ class MincutOnly : public ConstrainedClustering {
             return cluster_vectors;
         }
 
-        static inline void MinCutWorker(igraph_t* graph, ConnectednessCriterion current_connectedness_criterion, double connectedness_criterion_c, double connectedness_criterion_x, double pre_computed_log) {
+        static inline void MinCutWorker(igraph_t* graph, ConnectednessCriterion connectedness_criterion) {
             while (true) {
                 std::unique_lock<std::mutex> to_be_mincut_lock{to_be_mincut_mutex};
                 to_be_mincut_condition_variable.wait(to_be_mincut_lock, []() {
@@ -47,24 +48,20 @@ class MincutOnly : public ConstrainedClustering {
                 to_be_mincut_lock.unlock();
                 if(current_cluster.size() == 1 || current_cluster[0] == -1) {
                     // done with work!
-                    /* std::cerr << "thread done" << std::endl; */
                     return;
                 }
-                /* std::cerr << "processing cluster of size:" << std::to_string(current_cluster.size()) << std::endl; */
                 /* std::cerr << "current cluster size: " << current_cluster.size() << std::endl; */
                 igraph_vector_int_t nodes_to_keep;
                 igraph_vector_int_t new_id_to_old_id_map;
                 igraph_vector_int_init(&new_id_to_old_id_map, current_cluster.size());
                 igraph_vector_int_init(&nodes_to_keep, current_cluster.size());
                 for(size_t i = 0; i < current_cluster.size(); i ++) {
-                    /* std::cerr << "node to keep[i]=" << std::to_string(current_cluster.at(i)) << std::endl; */
                     VECTOR(nodes_to_keep)[i] = current_cluster[i];
                 }
                 igraph_t induced_subgraph;
                 // technically could just pass in the nodes and edges info directly by iterating through the edges and checking if it's inter vs intracluster
                 // likely not too much of a memory or time overhead
                 igraph_induced_subgraph_map(graph, &induced_subgraph, igraph_vss_vector(&nodes_to_keep), IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH, NULL, &new_id_to_old_id_map);
-                /* std::cerr << "induced subgraph" << std::endl; */
 
                 /* igraph_vector_int_t node_degrees; */
                 /* igraph_vector_int_init(&node_degrees, 0); */
@@ -79,13 +76,13 @@ class MincutOnly : public ConstrainedClustering {
                 int edge_cut_size = mcc.ComputeMinCut();
                 std::vector<int> in_partition = mcc.GetInPartition();
                 std::vector<int> out_partition = mcc.GetOutPartition();
-                /* std::cerr << "got the cuts into " << std::to_string(in_partition.size()) << " and " << std::to_string(out_partition.size()) << std::endl; */
-                bool current_criterion = ConstrainedClustering::IsWellConnected(current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, in_partition.size(), out_partition.size(), edge_cut_size);
-                /* if(connectedness_criterion == ConnectednessCriterion::Simple) { */
-                /*     current_criterion = ConstrainedClustering::IsConnected(edge_cut_size); */
-                /* } else if(connectedness_criterion == ConnectednessCriterion::Well) { */
-                /*     current_criterion = ConstrainedClustering::IsWellConnected(in_partition, out_partition, edge_cut_size, &induced_subgraph); */
-                /* } */
+
+                bool current_criterion = false;
+                if(connectedness_criterion == ConnectednessCriterion::Simple) {
+                    current_criterion = ConstrainedClustering::IsConnected(edge_cut_size);
+                } else if(connectedness_criterion == ConnectednessCriterion::Well) {
+                    current_criterion = ConstrainedClustering::IsWellConnected(in_partition, out_partition, edge_cut_size, &induced_subgraph);
+                }
 
                 if(!current_criterion) {
                     /* for(size_t i = 0; i < in_partition.size(); i ++) { */
@@ -136,7 +133,7 @@ class MincutOnly : public ConstrainedClustering {
         static inline std::queue<std::vector<int>> to_be_mincut_clusters;
         static inline std::mutex done_being_mincut_mutex;
         static inline std::queue<std::vector<int>> done_being_mincut_clusters;
-        std::string connectedness_criterion;
+        ConnectednessCriterion connectedness_criterion;
 };
 
 #endif
