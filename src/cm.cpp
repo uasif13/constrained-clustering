@@ -259,7 +259,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
             // }
             // else 
             if (current_components_vector_index < cc_count ) {
-                thread_vector.push_back(std::thread(CM::ComputeMinCutRecursive,connected_components_vector[current_components_vector_index], &graph, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, 1));
+                thread_vector.push_back(std::thread(CM::MinCutOrClusterWorkerRecursive,connected_components_vector[current_components_vector_index], &graph, algorithm, 0, clustering_parameter));
             }
             else {
                 break;
@@ -273,14 +273,11 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
         }
     }
     MPI_Barrier(my_rank, iter_count, 5, opCount);
-    this->WriteToLogFile(std::to_string(CM::done_being_mincut_clusters.size())+ " [connected components / clusters] mincut after a round of mincuts", Log::debug);
+    this->WriteToLogFile(std::to_string(CM::done_being_clustered_clusters.size())+ " [connected components / clusters] mincut after a round of mincuts", Log::debug);
 
     
     this->WriteToLogFile("my_rank: " + to_string(my_rank) + " Writing output to: " + this->output_file, Log::info, my_rank);
     previous_cluster_id = this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id, iter_count, opCount);
-    int mincut_continue_mr = !CM::to_be_mincut_clusters.empty();
-    MPI_Allgather(&mincut_continue_mr, 1, MPI_INT, mincut_continue, 1, MPI_INT, MPI_COMM_WORLD);
-    iter_count ++;
     
 
 
