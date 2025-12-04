@@ -98,10 +98,11 @@ public:
             // cv.wait(lk, []{ return i == 1; });
             // std::cerr << "...finished waiting. i == 1\n";
            
-            std::unique_lock<std::mutex> done_being_mincut_lock{MincutOnly::done_being_mincut_mutex};
+	    //            std::unique_lock<std::mutex> done_being_mincut_lock{MincutOnly::done_being_mincut_mutex};
+            std::lock_guard<std::mutex> to_be_mincut_guard(MincutOnly::to_be_mincut_mutex);
             MincutOnly::done_being_mincut_clusters.push(current_cluster);
 
-            done_being_mincut_lock.unlock();
+	    //            done_being_mincut_lock.unlock();
 
         }
         else
