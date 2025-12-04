@@ -120,8 +120,7 @@ public:
                     {
                         translated_in_clusters.push_back(VECTOR(new_id_to_old_id_map)[in_clusters[i][j]]);
                     }
-                    std::thread in = std::thread(MincutOnly::ComputeMinCutRecursive,translated_in_clusters, original_graph, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, depth+1);
-                    in.join();
+                    MincutOnly::ComputeMinCutRecursive(translated_in_clusters, original_graph, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, depth+1);
                 }
                 // igraph_vector_int_destroy(&new_id_to_old_id_map);
             }
@@ -138,12 +137,14 @@ public:
                     {
                         translated_out_clusters.push_back(VECTOR(new_id_to_old_id_map)[out_clusters[i][j]]);
                     }
-                    std::thread out = std::thread(MincutOnly::ComputeMinCutRecursive,translated_out_clusters, original_graph, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, depth+1);
-                    out.join();
+                    MincutOnly::ComputeMinCutRecursive(translated_out_clusters, original_graph, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, depth+1);
 
                 }
                 // igraph_vector_int_destroy(&new_id_to_old_id_map);
             }
+            // CRITICAL FIX: Destroy resources to prevent memory leak
+            igraph_destroy(&induced_subgraph);
+            igraph_vector_int_destroy(&new_id_to_old_id_map);
         }
     }
 
