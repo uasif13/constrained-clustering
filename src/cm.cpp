@@ -162,10 +162,6 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     int previous_cluster_id = 0;
 
     int current_components_vector_index = 0;
-    this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::debug, my_rank);
-    if(iter_count % 10 == 0) {
-        this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::info, my_rank);
-    }
 
     /** SECTION MinCutOnceAndCluster Each Connected Component START **/
     this->WriteToLogFile(std::to_string(cc_count) + " [connected components / clusters] to be mincut", Log::debug, my_rank);
@@ -189,12 +185,12 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
             thread_vector[thread_index].join();
         }
     }
-    MPI_Barrier(my_rank, iter_count, 5, opCount);
+    MPI_Barrier(my_rank, 1, 5, opCount);
     this->WriteToLogFile(std::to_string(CM::done_being_clustered_clusters.size())+ " [connected components / clusters] mincut after a round of mincuts", Log::debug);
 
     
     this->WriteToLogFile("my_rank: " + to_string(my_rank) + " Writing output to: " + this->output_file, Log::info, my_rank);
-    previous_cluster_id = this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id, iter_count, opCount);
+    previous_cluster_id = this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id, 1, opCount);
     
     igraph_destroy(&graph);
     return 0;

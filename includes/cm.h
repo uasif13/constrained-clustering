@@ -39,8 +39,6 @@ class CM : public ConstrainedClustering {
         }
 
         static inline void MinCutOrClusterWorkerRecursive(vector<int> current_cluster, const igraph_t* graph, std::string algorithm, int seed, double clustering_parameter) {
-            this->WriteToLogFile("Build subgraph for current_cluster" , Log::debug, my_rank);
-
             std::set<int> current_cluster_set(current_cluster.begin(), current_cluster.end());
             // initially all nodes
             igraph_vector_int_t nodes_to_keep;
@@ -58,8 +56,6 @@ class CM : public ConstrainedClustering {
             int num_nodes_removed = 0;
             igraph_vector_int_init(&new_id_to_old_id_vector_map, igraph_vector_int_size(&nodes_to_keep));
             igraph_induced_subgraph_map(graph, &induced_subgraph, igraph_vss_vector(&nodes_to_keep), IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH, NULL, &new_id_to_old_id_vector_map);
-            this->WriteToLogFile("Finished Building subgraph for current_cluster" , Log::debug, my_rank);
-
             std::map<int, int> new_id_to_old_id_map;
             std::map<int, int> newnew_id_to_old_id_map;
             std::map<int, int> old_id_to_new_id_map;
@@ -67,8 +63,6 @@ class CM : public ConstrainedClustering {
                 new_id_to_old_id_map[i] = VECTOR(new_id_to_old_id_vector_map)[i];
                 old_id_to_new_id_map[VECTOR(new_id_to_old_id_vector_map)[i]] = i;
             }
-            this->WriteToLogFile("Start Trimming Cluster" , Log::debug, my_rank);
-
             while(!(is_non_trivial_cut || is_well_connected)) {
                     MinCutCustom mcc(&induced_subgraph);
                     edge_cut_size = mcc.ComputeMinCut();
@@ -122,8 +116,6 @@ class CM : public ConstrainedClustering {
                         }
                     }
                 }
-            this->WriteToLogFile("End Trimming Cluster" , Log::debug, my_rank);
-
             if(is_well_connected) {
                 /* std::cerr << "cluster size " << std::to_string(current_cluster.size()) <<  " well connected after performing " << std::to_string(num_nodes_removed) << " trivial mincuts " << std::endl; */
                 current_cluster = std::vector(current_cluster_set.begin(), current_cluster_set.end());
@@ -134,11 +126,7 @@ class CM : public ConstrainedClustering {
             } else if(is_non_trivial_cut) {
                 /* std::cerr << "cluster mincut into " << std::to_string(in_partition.size()) << ":" << std::to_string(out_partition.size()) << " after performing " << std::to_string(num_nodes_removed) << " trivial mincuts " << std::endl; */
                 if(in_partition.size() > 1) {
-                    this->WriteToLogFile("Get In_clusters" , Log::debug, my_rank);
-
                     std::vector<std::vector<int>> in_clusters = CM::RunClusterOnPartition(&induced_subgraph, algorithm, seed, clustering_parameter, in_partition);
-                    this->WriteToLogFile("Finished Getting In_clusters" , Log::debug, my_rank);
-
                     for(size_t i = 0; i < in_clusters.size(); i ++) {
                         std::vector<int> translated_in_clusters;
                         for(size_t j = 0; j < in_clusters[i].size(); j ++) {
@@ -150,11 +138,7 @@ class CM : public ConstrainedClustering {
                     }
                 }
                 if(out_partition.size() > 1) {
-                    this->WriteToLogFile("Get  out clusters" , Log::debug, my_rank);
-
                     std::vector<std::vector<int>> out_clusters = CM::RunClusterOnPartition(&induced_subgraph, algorithm, seed, clustering_parameter, out_partition);
-                    this->WriteToLogFile("Finished Getting  out clusters" , Log::debug, my_rank);
-
                     for(size_t i = 0; i < out_clusters.size(); i ++) {
                         std::vector<int> translated_out_clusters;
                         for(size_t j = 0; j < out_clusters[i].size(); j ++) {
