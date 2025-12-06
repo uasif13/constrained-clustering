@@ -121,7 +121,6 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
     } else {
       MPI_Gather(&index_count, 1, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD);
     }
-    // MPI_Barrier(MPI_COMM_WORLD);
     
 
    // Send node_ids and cluster_ids to ROOT
@@ -145,7 +144,7 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
     
 }
 
-int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cluster_queue, igraph_t* graph, int cluster_start, int previous_cluster_id, int iteration, uint64_t* opCount) {
+void ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cluster_queue, igraph_t* graph, int cluster_start, int previous_cluster_id, int iteration, uint64_t* opCount) {
     // std::ofstream clustering_output;
     // clustering_output.open(this->output_file, std::ios_base::app);
     int current_cluster_id = cluster_start;
@@ -190,7 +189,6 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
     } else {
       MPI_Gather(&index_count, 1, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 3, opCount);
     }
-    // MPI_Barrier(my_rank, iteration, 5, opCount);
     
 
    // Send node_ids and cluster_ids to ROOT
@@ -211,10 +209,6 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
       MPI_Gatherv(node_id_arr, index_count, MPI_INT, NULL, NULL, NULL, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 4, opCount);
       MPI_Gatherv(cluster_id_arr, index_count, MPI_INT, NULL, NULL, NULL, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 4, opCount);
     }
-
-    // Broadcast previous_cluster_id
-    MPI_Bcast(&previous_cluster_id,1, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 0, opCount);
-    return previous_cluster_id;
 
 
 

@@ -478,7 +478,7 @@ class ConstrainedClustering {
                 if (!node_id_to_cluster_id_map ->contains(stoi(VAS(graph_ptr, "name",vertex)))) {
                     continue;
                 }
-                if (node_id_to_cluster_id_map -> at(stoi(VAS(graph_ptr, "name",vertex)))/cluster_size != my_rank) {
+                if (node_id_to_cluster_id_map -> at(stoi(VAS(graph_ptr, "name",vertex)))%nprocs != my_rank) {
                     continue;
                 }
                 //printf("vertex to check connection: %d\n", vertex);
@@ -504,7 +504,7 @@ class ConstrainedClustering {
                         if (!node_id_to_cluster_id_map ->contains(stoi(VAS(graph_ptr, "name",neighbor)))) {
                             continue;
                         }
-                        if (node_id_to_cluster_id_map -> at(stoi(VAS(graph_ptr, "name",neighbor)))/cluster_size != my_rank) {
+                        if (node_id_to_cluster_id_map -> at(stoi(VAS(graph_ptr, "name",neighbor)))%nprocs != my_rank) {
                             continue;
                         }
                         if (IGRAPH_BIT_TEST(already_added, neighbor)) {
@@ -525,7 +525,7 @@ class ConstrainedClustering {
                 if (!node_id_to_cluster_id_map ->contains(stoi(VAS(graph_ptr, "name",node_id)))) {
                     continue;
                 }
-                if (node_id_to_cluster_id_map -> at(stoi(VAS(graph_ptr, "name",node_id)))/cluster_size != my_rank) {
+                if (node_id_to_cluster_id_map -> at(stoi(VAS(graph_ptr, "name",node_id)))%nprocs != my_rank) {
                     continue;
                 }
                 int current_component_id = VECTOR(component_id_vector)[node_id];
