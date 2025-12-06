@@ -213,7 +213,7 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
     }
 
     // Broadcast previous_cluster_id
-    MPI_Bcast(&previous_cluster_id,1, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 0, opCount);
+    //    MPI_Bcast(&previous_cluster_id,1, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 0, opCount);
     return previous_cluster_id;
 
 
