@@ -57,7 +57,7 @@ class ConstrainedClustering {
         void WritePartitionMap(std::map<int,int>& final_partition);
         void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph);
         void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph, int cluster_start_index);        
-        int WriteClusterQueueMPI(std::queue<std::vector<int>>* to_be_clustered_clusters, igraph_t* graph, int cluster_start_index, int previous_cluster_id, int iteration, uint64_t* opCount);
+        void WriteClusterQueueMPI(std::queue<std::vector<int>>* to_be_clustered_clusters, igraph_t* graph, int cluster_start_index, int previous_cluster_id, int iteration, uint64_t* opCount);
 
         int initializeSlice(igraph_t * graph){
             this -> vertex_count = igraph_vcount(graph);
