@@ -116,19 +116,20 @@ int main(int argc, char* argv[]) {
         // printf("my_rank: %d call main\n", my_rank);
         cm->main(my_rank, nprocs, opCount);
         delete cm;
-    } else if(main_program.is_subcommand_used(mincut_only)) {
-        std::string edgelist = mincut_only.get<std::string>("--edgelist");
-        std::string existing_clustering = mincut_only.get<std::string>("--existing-clustering");
-        int num_processors = mincut_only.get<int>("--num-processors");
-        std::string output_file = mincut_only.get<std::string>("--output-file");
-        std::string log_file = mincut_only.get<std::string>("--log-file");
-        int log_level = mincut_only.get<int>("--log-level") - 1; // so that enum is cleaner
-        mpi_log_file = log_file + "_mpi";
-        ConnectednessCriterion connectedness_criterion = static_cast<ConnectednessCriterion>(mincut_only.get<int>("--connectedness-criterion"));
-        ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level);
-        random_functions::setSeed(0);
-        mincut_only->main(my_rank, nprocs, opCount);
-        delete mincut_only;
-    }
+    } 
+    // else if(main_program.is_subcommand_used(mincut_only)) {
+    //     std::string edgelist = mincut_only.get<std::string>("--edgelist");
+    //     std::string existing_clustering = mincut_only.get<std::string>("--existing-clustering");
+    //     int num_processors = mincut_only.get<int>("--num-processors");
+    //     std::string output_file = mincut_only.get<std::string>("--output-file");
+    //     std::string log_file = mincut_only.get<std::string>("--log-file");
+    //     int log_level = mincut_only.get<int>("--log-level") - 1; // so that enum is cleaner
+    //     mpi_log_file = log_file + "_mpi";
+    //     ConnectednessCriterion connectedness_criterion = static_cast<ConnectednessCriterion>(mincut_only.get<int>("--connectedness-criterion"));
+    //     ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level);
+    //     random_functions::setSeed(0);
+    //     mincut_only->main(my_rank, nprocs, opCount);
+    //     delete mincut_only;
+    // }
     MPI_Finalize(my_rank,nprocs, opCount, mpi_log_file);
 }

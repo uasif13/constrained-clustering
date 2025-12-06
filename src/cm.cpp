@@ -83,6 +83,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     edge_count = "my_rank: %d before rice edge_count " + to_string(igraph_ecount(&graph));
     // this -> WriteToLogFile(edge_count, Log::info, my_rank);
     printf("my_rank: %d before rice edge_count: %d\n", my_rank, igraph_ecount(&graph));
+    ClusteringData data;
     
     if(this->existing_clustering == "") {
         /* int seed = uni(rng); */
@@ -104,12 +105,12 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
         this->WriteToLogFile("Loading the new id to cluster id map" , Log::debug, my_rank);
 
         // output_map(original_to_new_id_map_nonmpi);
-        std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map_nonmpi, this->existing_clustering);
+        data = ConstrainedClustering::ReadCommunities(original_to_new_id_map_nonmpi, this->existing_clustering);
         this->WriteToLogFile("Finished loading the new id to cluster id map" , Log::debug, my_rank);
 
         this->WriteToLogFile("Removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_vcount(&graph)) , Log::debug, my_rank);
 
-        ConstrainedClustering::RemoveInterClusterEdges(&graph, new_node_id_to_cluster_id_map);
+        ConstrainedClustering::RemoveInterClusterEdges(&graph, data.partition_map);
 
         this->WriteToLogFile("Finished removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_vcount(&graph)) , Log::debug, my_rank);
 
@@ -122,33 +123,13 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
 
     this->WriteToLogFile("Loading the node id to cluster id map" , Log::debug, my_rank);
 
-    
-    std::map<int,int> node_id_to_cluster_id_map;
-    std::map<int, int> cluster_id_to_new_cluster_id_map;
-    std::ifstream existing_clustering_file(this -> existing_clustering);
-    
-    int node_id = 1;
-    int cluster_id = 1;
-    int cluster_id_new = 0;
-    while (existing_clustering_file >> node_id >> cluster_id) {
-        if (!cluster_id_to_new_cluster_id_map.contains(cluster_id)) {
-            cluster_id_to_new_cluster_id_map[cluster_id] = cluster_id_new;
-            cluster_id_new++;
-        }
-        node_id_to_cluster_id_map[node_id] = cluster_id_to_new_cluster_id_map[cluster_id];
-    }
-    int cluster_size = (cluster_id_new)/nprocs;
-    if ((cluster_id_new)%(nprocs) != 0) {
-        cluster_size ++;
-    }
-
     this->WriteToLogFile("Finished Loading the node id to cluster id map" , Log::debug, my_rank);
 
 
     /** SECTION Get Connected Components START **/
     this->WriteToLogFile("Getting all the connected components" , Log::debug, my_rank);
 
-    std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, &node_id_to_cluster_id_map, cluster_size, my_rank, nprocs);
+    std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, &(data.node_id_to_cluster_id_map), my_rank, nprocs);
     
     this->WriteToLogFile("Finished Getting all the connected components" , Log::debug, my_rank);
 

@@ -35,6 +35,11 @@ void output_vec_cc(std::vector<T> vec, igraph_t * graph) {
     }
     cout << "\n";
 }
+struct ClusteringData {
+    std::map<int,int> node_id_to_cluster_id_map;
+    std::map<int,int> cluster_id_to_new_cluster_id_map;
+    std::map<int, int> partition_map;
+};
 
 class ConstrainedClustering {
     public:
@@ -113,18 +118,24 @@ class ConstrainedClustering {
             return original_to_new_id_map;
         }
 
-        static inline std::map<int, int> ReadCommunities(const std::map<std::string, int>& original_to_new_id_map, std::string existing_clustering) {
-            std::map<int, int> partition_map;
+        static inline ClusteringData ReadCommunities(const std::map<std::string, int>& original_to_new_id_map, std::string existing_clustering) {
+            ClusteringData data;
             std::ifstream existing_clustering_file(existing_clustering);
             std::string node_id;
             int cluster_id = -1;
+            int cluster_id_new = 0;
             while (existing_clustering_file >> node_id >> cluster_id) {
                 if (original_to_new_id_map.contains(node_id)) {
                     int new_node_id = original_to_new_id_map.at(node_id);
-                    partition_map[new_node_id] = cluster_id;
+                    data.partition_map[new_node_id] = cluster_id;
                 }
+                if (!data.cluster_id_to_new_cluster_id_map.contains(cluster_id)) {
+                    data.cluster_id_to_new_cluster_id_map[cluster_id] = cluster_id_new;
+                    cluster_id_new++;
+                }
+                data.node_id_to_cluster_id_map[stoi(node_id)] = data.cluster_id_to_new_cluster_id_map[cluster_id];
             }
-            return partition_map;
+            return data;
         }
 
         static inline std::map<int, int> ReadCommunities(std::string existing_clustering) {
@@ -182,8 +193,6 @@ class ConstrainedClustering {
                     igraph_vector_int_push_back(&edges_to_keep, current_edge);
                 } 
             }
-            printf("edges to remove\n");
-	    //            igraph_vector_int_print(&edges_to_remove);
             igraph_t new_graph;
             igraph_es_t es;
             igraph_es_vector_copy(&es, &edges_to_keep);
@@ -445,7 +454,7 @@ class ConstrainedClustering {
             return connected_components_vector;
         }
 
-        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, std::map<int, int>* node_id_to_cluster_id_map, int cluster_size, int my_rank, int nprocs) {
+        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, std::map<int,int>* node_id_to_cluster_id_map, int my_rank, int nprocs) {
             std::vector<std::vector<int>> connected_components_vector;
             std::unordered_map<int, std::vector<int>> component_id_to_member_vector_map;
             igraph_vector_int_t component_id_vector;
