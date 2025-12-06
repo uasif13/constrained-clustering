@@ -21,7 +21,7 @@ public:
     };
     static int LoadEdgelistMMap(const std::string &filename,
                                 igraph_t *graph,
-                                //   std::unordered_map<int,int> node_id_to_new_node_id_map,
+                                  std::unordered_map<int,int>* node_id_to_new_node_id_map,
                                 bool has_weights)
     {
         int fd = open(filename.c_str(), O_RDONLY);
@@ -61,7 +61,6 @@ public:
         edges.reserve(estimated_edges);
 
         int next_node_id = 0;
-        std::unordered_map<int, int> node_id_to_new_node_id_map;
 
         while (ptr < end)
         {
@@ -79,16 +78,16 @@ public:
 
             double weight = 1.0;
 
-            if (node_id_to_new_node_id_map.find(from) == node_id_to_new_node_id_map.end())
+            if (node_id_to_new_node_id_map->find(from) == node_id_to_new_node_id_map->end())
             {
-                node_id_to_new_node_id_map[from] = next_node_id++;
+                node_id_to_new_node_id_map->insert({from,next_node_id++});
             }
-            if (node_id_to_new_node_id_map.find(to) == node_id_to_new_node_id_map.end())
+            if (node_id_to_new_node_id_map->find(to) == node_id_to_new_node_id_map->end())
             {
-                node_id_to_new_node_id_map[to] = next_node_id++;
+                node_id_to_new_node_id_map->insert({to,next_node_id++});
             }
 
-            edges.push_back({node_id_to_new_node_id_map[from], node_id_to_new_node_id_map[to], weight});
+            edges.push_back({node_id_to_new_node_id_map->at(from), node_id_to_new_node_id_map->at(to), weight});
 
             SkipToNextLine(ptr, end);
         }
@@ -106,6 +105,10 @@ public:
         igraph_empty(graph, next_node_id, IGRAPH_UNDIRECTED);
         igraph_add_edges(graph, &edge_vector, NULL);
         igraph_vector_int_destroy(&edge_vector);
+
+        for (const auto& pair: *node_id_to_new_node_id_map) {
+            SETVAS(graph, "name", pair.second, std::to_string(pair.first).c_str());
+        }
 
         munmap(mapped, file_size);
         close(fd);

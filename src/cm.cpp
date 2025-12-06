@@ -65,10 +65,11 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     /* std::uniform_int_distribution<int> uni(0, 100000); */
     this->WriteToLogFile("Loading the initial graph" , Log::info, my_rank);
 
+    igraph_set_attribute_table(&igraph_cattribute_table);
     igraph_t graph;
     std::unordered_map<int, int> original_to_new_id_map_nonmpi;
-    // MMapGraphLoader::LoadEdgelistMMap(this->edgelist, &graph,original_to_new_id_map_nonmpi,false);
-    MMapGraphLoader::LoadEdgelistMMap(this->edgelist, &graph,false);
+    MMapGraphLoader::LoadEdgelistMMap(this->edgelist, &graph,&original_to_new_id_map_nonmpi,false);
+    SetIgraphAllEdgesWeight(&graph, 1.0);
 
     this->WriteToLogFile("Finished loading the initial graph" , Log::info, my_rank);
     /* std::cerr << EAN(&graph, "weight", 0) << std::endl; */
@@ -101,7 +102,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
 
         this->WriteToLogFile("Removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_ecount(&graph)) , Log::debug, my_rank);
 
-        ConstrainedClustering::RemoveInterClusterEdges(&graph, data.partition_map);
+        ConstrainedClustering::RemoveInterClusterEdges(&graph, data.node_id_to_cluster_id_map);
 
         this->WriteToLogFile("Finished removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_ecount(&graph)) , Log::debug, my_rank);
 
@@ -120,8 +121,9 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     /** SECTION Get Connected Components START **/
     this->WriteToLogFile("Getting all the connected components" , Log::debug, my_rank);
 
-    std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, &(data.node_id_to_cluster_id_map), my_rank, nprocs);
-    
+    std::vector<std::vector<int>> connected_components_vector;
+    connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, data.node_id_to_cluster_id_map, my_rank, nprocs);
+
     this->WriteToLogFile("Finished Getting all the connected components" , Log::debug, my_rank);
 
     int cc_count = connected_components_vector.size();

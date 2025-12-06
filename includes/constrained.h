@@ -35,6 +35,13 @@ void output_vec_cc(std::vector<T> vec, igraph_t * graph) {
     }
     cout << "\n";
 }
+template <typename T>
+void output_vec_c(std::vector<T> vec) {
+    for (auto item: vec) {
+        cout << item << " ";
+    }
+    cout << "\n";
+}
 struct ClusteringData {
     std::map<int,int> node_id_to_cluster_id_map;
     std::map<int,int> cluster_id_to_new_cluster_id_map;
@@ -121,19 +128,20 @@ class ConstrainedClustering {
         static inline ClusteringData ReadCommunities(const std::unordered_map<int, int>& original_to_new_id_map, std::string existing_clustering) {
             ClusteringData data;
             std::ifstream existing_clustering_file(existing_clustering);
-            int node_id;
+            int node_id = -1;
             int cluster_id = -1;
             int cluster_id_new = 0;
+            int new_node_id = -1;
             while (existing_clustering_file >> node_id >> cluster_id) {
                 if (original_to_new_id_map.contains(node_id)) {
-                    int new_node_id = original_to_new_id_map.at(node_id);
-                    data.partition_map[new_node_id] = cluster_id;
+                    new_node_id = original_to_new_id_map.at(node_id);
+                    if (!data.cluster_id_to_new_cluster_id_map.contains(cluster_id)) {
+                        data.cluster_id_to_new_cluster_id_map[cluster_id] = cluster_id_new;
+                        cluster_id_new++;
+                    }
+                    data.node_id_to_cluster_id_map[new_node_id] = data.cluster_id_to_new_cluster_id_map[cluster_id];
                 }
-                if (!data.cluster_id_to_new_cluster_id_map.contains(cluster_id)) {
-                    data.cluster_id_to_new_cluster_id_map[cluster_id] = cluster_id_new;
-                    cluster_id_new++;
-                }
-                data.node_id_to_cluster_id_map[node_id] = data.cluster_id_to_new_cluster_id_map[cluster_id];
+                
             }
             return data;
         }
@@ -454,7 +462,7 @@ class ConstrainedClustering {
             return connected_components_vector;
         }
 
-        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, std::map<int,int>* node_id_to_cluster_id_map, int my_rank, int nprocs) {
+        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, const std::map<int,int>& node_id_to_cluster_id_map, int my_rank, int nprocs) {
             std::vector<std::vector<int>> connected_components_vector;
             std::unordered_map<int, std::vector<int>> component_id_to_member_vector_map;
             igraph_vector_int_t component_id_vector;
@@ -478,15 +486,15 @@ class ConstrainedClustering {
             int no_of_components = 0;
 
             std::vector<int> node_to_original_id(igraph_vcount(graph_ptr));
-            for(int i = 0; i < igraph_vcount(graph_ptr); i++) {
-                node_to_original_id[i] = stoi(VAS(graph_ptr, "name", i));
-            }
+            // for(int i = 0; i < igraph_vcount(graph_ptr); i++) {
+            //     node_to_original_id[i] = stoi(VAS(graph_ptr, "name", i));
+            // }
             //printf("my_rank: %d connected components algorithm initialized\n");
             for (int vertex = 0; vertex < no_of_vertices; ++vertex) {
-                if (!node_id_to_cluster_id_map ->contains(node_to_original_id[vertex])) {
+                if (!node_id_to_cluster_id_map.contains(vertex)) {
                     continue;
                 }
-                if (node_id_to_cluster_id_map -> at(node_to_original_id[vertex])%nprocs != my_rank) {
+                if (node_id_to_cluster_id_map.at(vertex)%nprocs != my_rank) {
                     continue;
                 }
                 //printf("vertex to check connection: %d\n", vertex);
@@ -509,10 +517,10 @@ class ConstrainedClustering {
                     for (int i = 0; i < nei_count; i++) {
                         int neighbor = VECTOR(neis)[i];
                         // printf("neighbor inside queue: %d\n", neighbor);
-                        if (!node_id_to_cluster_id_map ->contains(node_to_original_id[neighbor])) {
+                        if (!node_id_to_cluster_id_map.contains(neighbor)) {
                             continue;
                         }
-                        if (node_id_to_cluster_id_map -> at(node_to_original_id[neighbor])%nprocs != my_rank) {
+                        if (node_id_to_cluster_id_map.at(neighbor)%nprocs != my_rank) {
                             continue;
                         }
                         if (IGRAPH_BIT_TEST(already_added, neighbor)) {
@@ -529,11 +537,11 @@ class ConstrainedClustering {
             }
             // igraph_vector_int_print(&component_id_vector);
             /* std::cerr << "num con comp: " << number_of_components << std::endl; */
-            for(int node_id = 0; node_id < igraph_vcount(graph_ptr); node_id ++) {
-                if (!node_id_to_cluster_id_map ->contains(node_to_original_id[node_id])) {
+            for(int node_id = 0; node_id < no_of_vertices; node_id++) {
+                if (!node_id_to_cluster_id_map.contains(node_id)) {
                     continue;
                 }
-                if (node_id_to_cluster_id_map -> at(node_to_original_id[node_id])%nprocs != my_rank) {
+                if (node_id_to_cluster_id_map.at(node_id)%nprocs != my_rank) {
                     continue;
                 }
                 int current_component_id = VECTOR(component_id_vector)[node_id];
@@ -549,7 +557,6 @@ class ConstrainedClustering {
             igraph_vector_int_destroy(&membership_size_vector);
             for(auto const& [component_id, member_vector] : component_id_to_member_vector_map) {
                 if (component_id != -1) {
-                    // output_vec_cc(member_vector, graph_ptr);
                     connected_components_vector.push_back(member_vector);
                 }
             }
