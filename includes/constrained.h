@@ -118,10 +118,10 @@ class ConstrainedClustering {
             return original_to_new_id_map;
         }
 
-        static inline ClusteringData ReadCommunities(const std::map<std::string, int>& original_to_new_id_map, std::string existing_clustering) {
+        static inline ClusteringData ReadCommunities(const std::unordered_map<int, int>& original_to_new_id_map, std::string existing_clustering) {
             ClusteringData data;
             std::ifstream existing_clustering_file(existing_clustering);
-            std::string node_id;
+            int node_id;
             int cluster_id = -1;
             int cluster_id_new = 0;
             while (existing_clustering_file >> node_id >> cluster_id) {
@@ -133,7 +133,7 @@ class ConstrainedClustering {
                     data.cluster_id_to_new_cluster_id_map[cluster_id] = cluster_id_new;
                     cluster_id_new++;
                 }
-                data.node_id_to_cluster_id_map[stoi(node_id)] = data.cluster_id_to_new_cluster_id_map[cluster_id];
+                data.node_id_to_cluster_id_map[node_id] = data.cluster_id_to_new_cluster_id_map[cluster_id];
             }
             return data;
         }

@@ -2,6 +2,7 @@
 #include <mpi_telemetry.h>
 #include <igraph.h>
 #include <string>
+#include <unordered_map>
 
 using namespace std;
 #define ROOT 0
@@ -64,17 +65,11 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     /* std::uniform_int_distribution<int> uni(0, 100000); */
     this->WriteToLogFile("Loading the initial graph" , Log::info, my_rank);
 
-    printf("my_rank: %d load graph\n", my_rank);
-    FILE* edgelist_file = fopen(this->edgelist.c_str(), "r");
     igraph_t graph;
-    igraph_set_attribute_table(&igraph_cattribute_table);
-    igraph_read_graph_ncol(&graph, edgelist_file, NULL, 1, IGRAPH_ADD_WEIGHTS_IF_PRESENT, IGRAPH_UNDIRECTED);
-    if(!igraph_cattribute_has_attr(&graph, IGRAPH_ATTRIBUTE_EDGE, "weight")) {
-        SetIgraphAllEdgesWeight(&graph, 1.0);
-    }
-    /* igraph_read_graph_edgelist(&graph, edgelist_file, 0, false); */
-    fclose(edgelist_file);
-    printf("my_rank: %d finished loading graph\n", my_rank);
+    std::unordered_map<int, int> original_to_new_id_map_nonmpi;
+    // MMapGraphLoader::LoadEdgelistMMap(this->edgelist, &graph,original_to_new_id_map_nonmpi,false);
+    MMapGraphLoader::LoadEdgelistMMap(this->edgelist, &graph,false);
+
     this->WriteToLogFile("Finished loading the initial graph" , Log::info, my_rank);
     /* std::cerr << EAN(&graph, "weight", 0) << std::endl; */
     
@@ -97,10 +92,6 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
         ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_map);
     } else if(this->existing_clustering != "") {
         // non mpis
-        this->WriteToLogFile("Loading the original to new id map" , Log::debug, my_rank);
-
-        std::map<std::string, int> original_to_new_id_map_nonmpi = ConstrainedClustering::GetOriginalToNewIdMap(&graph);
-        this->WriteToLogFile("Finished loading the original to new id map" , Log::debug, my_rank);
 
         this->WriteToLogFile("Loading the new id to cluster id map" , Log::debug, my_rank);
 
@@ -108,11 +99,11 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
         data = ConstrainedClustering::ReadCommunities(original_to_new_id_map_nonmpi, this->existing_clustering);
         this->WriteToLogFile("Finished loading the new id to cluster id map" , Log::debug, my_rank);
 
-        this->WriteToLogFile("Removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_vcount(&graph)) , Log::debug, my_rank);
+        this->WriteToLogFile("Removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_ecount(&graph)) , Log::debug, my_rank);
 
         ConstrainedClustering::RemoveInterClusterEdges(&graph, data.partition_map);
 
-        this->WriteToLogFile("Finished removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_vcount(&graph)) , Log::debug, my_rank);
+        this->WriteToLogFile("Finished removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_ecount(&graph)) , Log::debug, my_rank);
 
     }
 
