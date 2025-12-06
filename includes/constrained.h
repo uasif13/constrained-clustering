@@ -184,6 +184,87 @@ class ConstrainedClustering {
         }
 
         // currently keeps only those edges that go from within these clusters defined in the map
+        static inline void RemoveInterClusterEdges(igraph_t* graph, const std::unordered_map<int,int>& node_id_to_cluster_id_map , const int num_threads) {
+            // printf("inside rice_orig\n");
+            const int num_nodes = igraph_vcount(graph);
+            const int total_edges = igraph_ecount(graph);
+
+            std::vector<int> node_to_cluster(num_nodes, -1);
+            for (const auto& [node, cluster]: node_id_to_cluster_id_map) {
+                if (node < num_nodes) {
+                    node_to_cluster[node] = cluster;
+                }
+            }
+
+            std::vector<std::vector<int>> thread_local_edges(num_threads);
+            for (int i = 0; i < num_threads; i++) {
+                thread_local_edges[i].reserve(total_edges/num_threads/2);
+            }
+
+            auto filter_edges = [&](int thread_id, int start_edge, int end_edge) {
+                igraph_eit_t eit;
+                igraph_es_t es;
+                igraph_es_range(&es, start_edge, end_edge);
+                igraph_eit_create(graph, es,&eit);
+
+                auto& local_edges = thread_local_edges[thread_id];
+
+                for (; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
+                    igraph_integer_t edge_id = IGRAPH_EIT_GET(eit);
+                    int from_node = IGRAPH_FROM(graph, edge_id);
+                    int to_node = IGRAPH_TO(graph, edge_id);
+
+                    int from_cluster = node_to_cluster[from_node];
+                    int to_cluster = node_to_cluster[to_node];
+
+                    if (from_cluster != -1 && to_cluster != -1 && from_cluster == to_cluster) {
+                        local_edges.push_back(edge_id);
+                    }
+                }
+                igraph_eit_destroy(&eit);
+                igraph_es_destroy(&es);
+            };
+
+            std::vector<std::thread> threads;
+            const int chunk_size = (total_edges + num_threads - 1) / num_threads;
+
+            for (int i = 0; i < num_threads; i++) {
+                int start = i*chunk_size;
+                int end = std::min(start+chunk_size, total_edges);
+                if (start < end) {
+                    threads.emplace_back(filter_edges, i, start, end);
+                }
+            }
+
+            for (auto&t: threads) {
+                t.join();
+            }
+
+            int total_kept = 0;
+            for (const auto& local: thread_local_edges) {
+                total_kept += local.size();
+            }
+
+            igraph_vector_int_t edges_to_keep;
+            igraph_vector_int_init(&edges_to_keep, total_kept);
+
+            int idx = 0;
+            for (const auto& local: thread_local_edges) {
+                for (int edge: local) {
+                    VECTOR(edges_to_keep)[idx++] = edge;
+                }
+            }
+            igraph_t new_graph;
+            igraph_es_t es;
+            igraph_es_vector_copy(&es, &edges_to_keep);
+            igraph_subgraph_from_edges(graph, &new_graph, es, false);
+            igraph_destroy(graph);
+            *graph = new_graph;
+            igraph_es_destroy(&es);
+            igraph_vector_int_destroy(&edges_to_keep);
+        }
+
+        // currently keeps only those edges that go from within these clusters defined in the map
         static inline void RemoveInterClusterEdges(igraph_t* graph, const std::unordered_map<int,int>& node_id_to_cluster_id_map) {
             // printf("inside rice_orig\n");
             igraph_vector_int_t edges_to_keep;
