@@ -167,8 +167,8 @@ class ConstrainedClustering {
         // currently keeps only those edges that go from within these clusters defined in the map
         static inline void RemoveInterClusterEdges(igraph_t* graph, const std::map<int,int>& node_id_to_cluster_id_map) {
             // printf("inside rice_orig\n");
-            igraph_vector_int_t edges_to_remove;
-            igraph_vector_int_init(&edges_to_remove, 0);
+            igraph_vector_int_t edges_to_keep;
+            igraph_vector_int_init(&edges_to_keep, 0);
             igraph_eit_t eit;
             igraph_eit_create(graph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
             // printf("inside rice_orig es created");
@@ -179,25 +179,20 @@ class ConstrainedClustering {
                 if(node_id_to_cluster_id_map.contains(from_node) && node_id_to_cluster_id_map.contains(to_node)
                     && (node_id_to_cluster_id_map.at(from_node) == node_id_to_cluster_id_map.at(to_node))) {
                     // keep the edge
-                } else {
-                    // printf("rice from_node: %d cluster_id: %d to_node: %d cluster_id: %d\n", from_node, node_id_to_cluster_id_map.at(from_node), to_node, node_id_to_cluster_id_map.at(to_node));
-                    igraph_vector_int_push_back(&edges_to_remove, IGRAPH_EIT_GET(eit));
-                    /* std::cerr << "removing edge " << from_node << "-" << to_node << std::endl; */
-                    /* if(node_id_to_cluster_id_map.contains(from_node) && node_id_to_cluster_id_map.contains(to_node)) { */
-                        /* std::cerr << VAS(graph, "name", from_node) << " in cluster " << node_id_to_cluster_id_map.at(from_node) << " and " << VAS(graph, "name", to_node) << " in cluster " << node_id_to_cluster_id_map.at(to_node) << std::endl; */
-                    /* } else { */
-                    /*     std::cerr << "one of the end points not in any clusters" << std::endl; */
-                    /* } */
-                }
+                    igraph_vector_int_push_back(&edges_to_keep, current_edge);
+                } 
             }
             printf("edges to remove\n");
 	    //            igraph_vector_int_print(&edges_to_remove);
+            igraph_t new_graph;
             igraph_es_t es;
-            igraph_es_vector_copy(&es, &edges_to_remove);
-            igraph_delete_edges(graph, es);
+            igraph_es_vector_copy(&es, &edges_to_keep);
+            igraph_subgraph_from_edges(graph, &new_graph, es, false);
+            igraph_destroy(graph);
+            *graph = new_graph;
             igraph_eit_destroy(&eit);
             igraph_es_destroy(&es);
-            igraph_vector_int_destroy(&edges_to_remove);
+            igraph_vector_int_destroy(&edges_to_keep);
         }
 
         // currently keeps only those edges that go from within these clusters defined in the map
@@ -473,12 +468,16 @@ class ConstrainedClustering {
             igraph_vector_int_init(&neis,0);
             int no_of_components = 0;
 
+            std::vector<int> node_to_original_id(igraph_vcount(graph_ptr));
+            for(int i = 0; i < igraph_vcount(graph_ptr); i++) {
+                node_to_original_id[i] = stoi(VAS(graph_ptr, "name", i));
+            }
             //printf("my_rank: %d connected components algorithm initialized\n");
             for (int vertex = 0; vertex < no_of_vertices; ++vertex) {
-                if (!node_id_to_cluster_id_map ->contains(stoi(VAS(graph_ptr, "name",vertex)))) {
+                if (!node_id_to_cluster_id_map ->contains(node_to_original_id[vertex])) {
                     continue;
                 }
-                if (node_id_to_cluster_id_map -> at(stoi(VAS(graph_ptr, "name",vertex)))%nprocs != my_rank) {
+                if (node_id_to_cluster_id_map -> at(node_to_original_id[vertex])%nprocs != my_rank) {
                     continue;
                 }
                 //printf("vertex to check connection: %d\n", vertex);
@@ -501,10 +500,10 @@ class ConstrainedClustering {
                     for (int i = 0; i < nei_count; i++) {
                         int neighbor = VECTOR(neis)[i];
                         // printf("neighbor inside queue: %d\n", neighbor);
-                        if (!node_id_to_cluster_id_map ->contains(stoi(VAS(graph_ptr, "name",neighbor)))) {
+                        if (!node_id_to_cluster_id_map ->contains(node_to_original_id[neighbor])) {
                             continue;
                         }
-                        if (node_id_to_cluster_id_map -> at(stoi(VAS(graph_ptr, "name",neighbor)))%nprocs != my_rank) {
+                        if (node_id_to_cluster_id_map -> at(node_to_original_id[neighbor])%nprocs != my_rank) {
                             continue;
                         }
                         if (IGRAPH_BIT_TEST(already_added, neighbor)) {
@@ -522,10 +521,10 @@ class ConstrainedClustering {
             // igraph_vector_int_print(&component_id_vector);
             /* std::cerr << "num con comp: " << number_of_components << std::endl; */
             for(int node_id = 0; node_id < igraph_vcount(graph_ptr); node_id ++) {
-                if (!node_id_to_cluster_id_map ->contains(stoi(VAS(graph_ptr, "name",node_id)))) {
+                if (!node_id_to_cluster_id_map ->contains(node_to_original_id[node_id])) {
                     continue;
                 }
-                if (node_id_to_cluster_id_map -> at(stoi(VAS(graph_ptr, "name",node_id)))%nprocs != my_rank) {
+                if (node_id_to_cluster_id_map -> at(node_to_original_id[node_id])%nprocs != my_rank) {
                     continue;
                 }
                 int current_component_id = VECTOR(component_id_vector)[node_id];

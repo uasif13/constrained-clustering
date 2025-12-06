@@ -107,11 +107,11 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
         std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map_nonmpi, this->existing_clustering);
         this->WriteToLogFile("Finished loading the new id to cluster id map" , Log::debug, my_rank);
 
-        this->WriteToLogFile("Removing Inter cluster edges" , Log::debug, my_rank);
+        this->WriteToLogFile("Removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_vcount(&graph)) , Log::debug, my_rank);
 
         ConstrainedClustering::RemoveInterClusterEdges(&graph, new_node_id_to_cluster_id_map);
 
-        this->WriteToLogFile("Finished removing Inter cluster edges" , Log::debug, my_rank);
+        this->WriteToLogFile("Finished removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_vcount(&graph)) , Log::debug, my_rank);
 
     }
 
