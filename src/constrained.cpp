@@ -121,7 +121,7 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
     } else {
       MPI_Gather(&index_count, 1, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD);
     }
-    MPI_Barrier(MPI_COMM_WORLD);
+    // MPI_Barrier(MPI_COMM_WORLD);
     
 
    // Send node_ids and cluster_ids to ROOT
@@ -190,7 +190,7 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
     } else {
       MPI_Gather(&index_count, 1, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 3, opCount);
     }
-    MPI_Barrier(my_rank, iteration, 5, opCount);
+    // MPI_Barrier(my_rank, iteration, 5, opCount);
     
 
    // Send node_ids and cluster_ids to ROOT

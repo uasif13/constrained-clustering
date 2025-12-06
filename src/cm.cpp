@@ -185,7 +185,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
             thread_vector[thread_index].join();
         }
     }
-    MPI_Barrier(my_rank, 1, 5, opCount);
+    // MPI_Barrier(my_rank, 1, 5, opCount);
     this->WriteToLogFile(std::to_string(CM::done_being_clustered_clusters.size())+ " [connected components / clusters] mincut after a round of mincuts", Log::debug);
 
     
