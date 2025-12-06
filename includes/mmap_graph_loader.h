@@ -116,7 +116,67 @@ public:
     }
 
     static int LoadClusteringMMap(const std::string &filename,
-                                  std::unordered_map<int, int> &node_to_cluster);
+                                  std::unordered_map<int, int>* node_to_cluster,
+                                std::unordered_map<int, int> &node_id_to_new_node_id_cluster)
+    {
+        int fd = open(filename.c_str(), O_RDONLY);
+        if (fd == -1) {
+            std::cerr << "Failed to open file: " << filename << std::endl;
+            return -1;
+        }
+        struct stat sb;
+        if (fstat(fd, &sb) == -1) {
+            std::cerr << "Failed to get file stats" << std::endl;
+            close(fd);
+            return -1;
+        }
+        size_t file_size = sb.st_size;
+        char *mapped = (char *)mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (mapped == MAP_FAILED) {
+            std::cerr << "mmap failed" << std::endl;
+            close(fd);
+            return -1;
+        }
+        madvise(mapped, file_size, MADV_SEQUENTIAL | MADV_WILLNEED);
+
+        const char *ptr = mapped;
+        const char *end = mapped + file_size;
+
+        if (ptr < end && (*ptr < '0' || *ptr > '9'))
+        {
+            SkipToNextLine(ptr,end);
+        }
+        size_t estimated_clusters = EstimateEdgeCount(mapped, file_size);
+        std::unordered_map<int,int> cluster_id_to_new_cluster_id_map;
+
+        int cluster_id_new = 0;
+        while (ptr < end) 
+        {
+            while (ptr < end && (*ptr == '\n' || *ptr == '\r'))
+                ptr++;
+            if (ptr >= end)
+                break;
+
+            int node = ParseInt(ptr, end);
+
+            while (ptr < end && (*ptr == '\t' || *ptr == ' '))
+                ptr++;
+
+            int cluster = ParseInt(ptr,end);
+
+            if (cluster_id_to_new_cluster_id_map.find(cluster) == cluster_id_to_new_cluster_id_map.end()) {
+                cluster_id_to_new_cluster_id_map[cluster] = cluster_id_new++;
+            }
+
+            node_to_cluster->insert({node_id_to_new_node_id_cluster[node],cluster_id_to_new_cluster_id_map[cluster]});
+
+            SkipToNextLine(ptr,end);
+        }
+
+        munmap(mapped, file_size);
+        close(fd);
+        return 0;
+    }
 
 private:
     static inline int ParseInt(const char *&ptr, const char *end)

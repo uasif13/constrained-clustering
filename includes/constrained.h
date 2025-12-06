@@ -184,6 +184,34 @@ class ConstrainedClustering {
         }
 
         // currently keeps only those edges that go from within these clusters defined in the map
+        static inline void RemoveInterClusterEdges(igraph_t* graph, const std::unordered_map<int,int>& node_id_to_cluster_id_map) {
+            // printf("inside rice_orig\n");
+            igraph_vector_int_t edges_to_keep;
+            igraph_vector_int_init(&edges_to_keep, 0);
+            igraph_eit_t eit;
+            igraph_eit_create(graph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
+            // printf("inside rice_orig es created");
+            for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
+                igraph_integer_t current_edge = IGRAPH_EIT_GET(eit);
+                int from_node = IGRAPH_FROM(graph, current_edge);
+                int to_node = IGRAPH_TO(graph, current_edge);
+                if(node_id_to_cluster_id_map.contains(from_node) && node_id_to_cluster_id_map.contains(to_node)
+                    && (node_id_to_cluster_id_map.at(from_node) == node_id_to_cluster_id_map.at(to_node))) {
+                    // keep the edge
+                    igraph_vector_int_push_back(&edges_to_keep, current_edge);
+                } 
+            }
+            igraph_t new_graph;
+            igraph_es_t es;
+            igraph_es_vector_copy(&es, &edges_to_keep);
+            igraph_subgraph_from_edges(graph, &new_graph, es, false);
+            igraph_destroy(graph);
+            *graph = new_graph;
+            igraph_eit_destroy(&eit);
+            igraph_es_destroy(&es);
+            igraph_vector_int_destroy(&edges_to_keep);
+        }
+
         static inline void RemoveInterClusterEdges(igraph_t* graph, const std::map<int,int>& node_id_to_cluster_id_map) {
             // printf("inside rice_orig\n");
             igraph_vector_int_t edges_to_keep;
@@ -462,7 +490,7 @@ class ConstrainedClustering {
             return connected_components_vector;
         }
 
-        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, const std::map<int,int>& node_id_to_cluster_id_map, int my_rank, int nprocs) {
+        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, const std::unordered_map<int,int>& node_id_to_cluster_id_map, int my_rank, int nprocs) {
             std::vector<std::vector<int>> connected_components_vector;
             std::unordered_map<int, std::vector<int>> component_id_to_member_vector_map;
             igraph_vector_int_t component_id_vector;

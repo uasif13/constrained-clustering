@@ -80,6 +80,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     // this -> WriteToLogFile(edge_count, Log::info, my_rank);
     printf("my_rank: %d before rice edge_count: %d\n", my_rank, igraph_ecount(&graph));
     ClusteringData data;
+    std::unordered_map<int, int> node_id_to_cluster_id_unordered_map;
     
     if(this->existing_clustering == "") {
         /* int seed = uni(rng); */
@@ -97,12 +98,12 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
         this->WriteToLogFile("Loading the new id to cluster id map" , Log::debug, my_rank);
 
         // output_map(original_to_new_id_map_nonmpi);
-        data = ConstrainedClustering::ReadCommunities(original_to_new_id_map_nonmpi, this->existing_clustering);
+        MMapGraphLoader::LoadClusteringMMap(this->existing_clustering, &node_id_to_cluster_id_unordered_map, original_to_new_id_map_nonmpi);
         this->WriteToLogFile("Finished loading the new id to cluster id map" , Log::debug, my_rank);
 
         this->WriteToLogFile("Removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_ecount(&graph)) , Log::debug, my_rank);
 
-        ConstrainedClustering::RemoveInterClusterEdges(&graph, data.node_id_to_cluster_id_map);
+        ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_unordered_map);
 
         this->WriteToLogFile("Finished removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_ecount(&graph)) , Log::debug, my_rank);
 
@@ -122,7 +123,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     this->WriteToLogFile("Getting all the connected components" , Log::debug, my_rank);
 
     std::vector<std::vector<int>> connected_components_vector;
-    connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, data.node_id_to_cluster_id_map, my_rank, nprocs);
+    connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, node_id_to_cluster_id_unordered_map, my_rank, nprocs);
 
     this->WriteToLogFile("Finished Getting all the connected components" , Log::debug, my_rank);
 
