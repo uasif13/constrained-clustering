@@ -46,6 +46,7 @@ else()
         ${CMAKE_SOURCE_DIR}/src/mincut_custom.cpp
 	    ${CMAKE_SOURCE_DIR}/src/GraphHelper.cpp
         ${CMAKE_SOURCE_DIR}/src/mpi_telemetry.cpp
+        ${CMAKE_SOURCE_DIR}/src/mmap_graph_loader.cpp
         ${CMAKE_SOURCE_DIR}/external_libs/VieCut/extlib/tlx/tlx/logger.cpp
     )
     #[[ CONSTANTS END ]]
