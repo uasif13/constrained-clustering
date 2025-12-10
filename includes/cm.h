@@ -2,6 +2,7 @@
 #define CM_H
 #include "constrained.h"
 #include "mmap_graph_loader.h"
+#include "mmap_writer.h"
 
 
 class CM : public ConstrainedClustering {

@@ -2,6 +2,7 @@
 #define MPI_TELEMETRY_H
 #include <mpi.h>
 #include <cstdint>
+#include <string>
 
 
 

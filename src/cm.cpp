@@ -164,8 +164,8 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
 
     
     this->WriteToLogFile("my_rank: " + to_string(my_rank) + " Writing output to: " + this->output_file, Log::info, my_rank);
-    this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id, 1, opCount);
-    
+    // this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id, 1, opCount);
+    previous_cluster_id = MMapWriter::WriteDistributed(&CM::done_being_clustered_clusters, &graph, this->output_file, cc_start, previous_cluster_id, my_rank, nprocs);    
     igraph_destroy(&graph);
     return 0;
 }
