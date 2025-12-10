@@ -92,9 +92,13 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
         ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_map);
     } else if(this->existing_clustering != "") {
         // non mpi
+        this->WriteToLogFile("Loading the new id to cluster id map" , Log::debug, my_rank);
         MMapGraphLoader::LoadClusteringMMap(this->existing_clustering, &node_id_to_cluster_id_unordered_map, original_to_new_id_unordered_map);
+        this->WriteToLogFile("Finished loading the new id to cluster id map" , Log::debug, my_rank);    
         // output_map(original_to_new_id_map_nonmpi);
+        this->WriteToLogFile("Removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_ecount(&graph)) , Log::debug, my_rank);
         ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_unordered_map, this-> num_processors);
+        this->WriteToLogFile("Finished removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_ecount(&graph)) , Log::debug, my_rank);
     }
 
     edge_count = "my_rank: %d after rice edge_count " + to_string(igraph_ecount(&graph));
@@ -105,8 +109,10 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     /** SECTION Get Connected Components START **/
     // std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
     //printf("my_rank: %d connected components start\n", my_rank);
+    this->WriteToLogFile("Getting all the connected components" , Log::debug, my_rank);
     std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, node_id_to_cluster_id_unordered_map, my_rank, nprocs);
 
+    this->WriteToLogFile("Finished Getting all the connected components" , Log::debug, my_rank);
     // store the results into the queue that each thread pulls from
     
     int cc_count = connected_components_vector.size();
@@ -186,12 +192,14 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
             CM::to_be_mincut_clusters.push(CM::to_be_clustered_clusters.front());
             CM::to_be_clustered_clusters.pop();
         }
-        this->WriteToLogFile("my_rank: " + to_string(my_rank) + " Writing output to: " + this->output_file, Log::info, my_rank);
-        previous_cluster_id = this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id, iter_count, opCount);
         int mincut_continue_mr = !CM::to_be_mincut_clusters.empty();
         MPI_Allgather(&mincut_continue_mr, 1, MPI_INT, mincut_continue, 1, MPI_INT, MPI_COMM_WORLD);
         iter_count ++;
     }
+
+    this->WriteToLogFile("my_rank: " + to_string(my_rank) + " Writing output to: " + this->output_file, Log::info, my_rank);
+    previous_cluster_id = this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id, iter_count, opCount);
+        
 
 
     //this->WriteToLogFile("Writing output to: " + this->output_file, Log::info, my_rank);
