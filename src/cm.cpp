@@ -68,7 +68,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     printf("my_rank: %d load graph\n", my_rank);
     igraph_set_attribute_table(&igraph_cattribute_table);
     igraph_t graph;
-    std::unordered_map<long, long> original_to_new_id_unordered_map;
+    std::unordered_map<int, int> original_to_new_id_unordered_map;
     MMapGraphLoader::LoadEdgelistMMap(this->edgelist, &graph,&original_to_new_id_unordered_map,false);
     SetIgraphAllEdgesWeight(&graph, 1.0);
     printf("my_rank: %d finished loading graph\n", my_rank);
@@ -80,7 +80,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     edge_count = "my_rank: %d before rice edge_count " + to_string(igraph_ecount(&graph));
     this -> WriteToLogFile(edge_count, Log::info, my_rank);
     printf("my_rank: %d before rice edge_count: %d\n", my_rank, igraph_ecount(&graph));
-    std::unordered_map<long, long> node_id_to_cluster_id_unordered_map;
+    std::unordered_map<int, int> node_id_to_cluster_id_unordered_map;
     
     if(this->existing_clustering == "") {
         /* int seed = uni(rng); */
