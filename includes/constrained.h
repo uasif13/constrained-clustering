@@ -192,24 +192,24 @@ class ConstrainedClustering {
         }
 
         // currently keeps only those edges that go from within these clusters defined in the map
-        static inline void RemoveInterClusterEdges(igraph_t* graph, const std::unordered_map<int,int>& node_id_to_cluster_id_map, int num_threads) {
+        static inline void RemoveInterClusterEdges(igraph_t* graph, const std::unordered_map<long,long>& node_id_to_cluster_id_map, int num_threads) {
             // printf("inside rice_orig\n");
-            const int num_nodes = igraph_vcount(graph);
-            const int total_edges = igraph_ecount(graph);
+            const long num_nodes = igraph_vcount(graph);
+            const long total_edges = igraph_ecount(graph);
 
-            std::vector<int> node_to_cluster(num_nodes, -1);
+            std::vector<long> node_to_cluster(num_nodes, -1);
             for (const auto& [node, cluster]: node_id_to_cluster_id_map) {
                 if (node < num_nodes) {
                     node_to_cluster[node] = cluster;
                 }
             }
 
-            std::vector<std::vector<int>> thread_local_edges(num_threads);
+            std::vector<std::vector<long>> thread_local_edges(num_threads);
             for (int i = 0; i < num_threads; i++) {
                 thread_local_edges[i].reserve(total_edges/num_threads/2);
             }
 
-            auto filter_edges = [&](int thread_id, int start_edge, int end_edge) {
+            auto filter_edges = [&](long thread_id, long start_edge, long end_edge) {
                 igraph_eit_t eit;
                 igraph_es_t es;
                 igraph_es_range(&es, start_edge, end_edge);
@@ -219,11 +219,11 @@ class ConstrainedClustering {
 
                 for (; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
                     igraph_integer_t edge_id = IGRAPH_EIT_GET(eit);
-                    int from_node = IGRAPH_FROM(graph, edge_id);
-                    int to_node = IGRAPH_TO(graph, edge_id);
+                    long from_node = IGRAPH_FROM(graph, edge_id);
+                    long to_node = IGRAPH_TO(graph, edge_id);
 
-                    int from_cluster = node_to_cluster[from_node];
-                    int to_cluster = node_to_cluster[to_node];
+                    long from_cluster = node_to_cluster[from_node];
+                    long to_cluster = node_to_cluster[to_node];
 
                     if (from_cluster != -1 && to_cluster != -1 && from_cluster == to_cluster) {
                         local_edges.push_back(edge_id);
@@ -237,8 +237,8 @@ class ConstrainedClustering {
             const int chunk_size = (total_edges + num_threads - 1) / num_threads;
 
             for (int i = 0; i < num_threads; i++) {
-                int start = i*chunk_size;
-                int end = std::min(start+chunk_size, total_edges);
+                long start = i*chunk_size;
+                long end = std::min(start+chunk_size, total_edges);
                 if (start < end) {
                     threads.emplace_back(filter_edges, i, start, end);
                 }
@@ -248,7 +248,7 @@ class ConstrainedClustering {
                 t.join();
             }
 
-            int total_kept = 0;
+            long total_kept = 0;
             for (const auto& local: thread_local_edges) {
                 total_kept += local.size();
             }
@@ -522,7 +522,7 @@ class ConstrainedClustering {
             return connected_components_vector;
         }
 
-        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, const std::unordered_map<int,int>& node_id_to_cluster_id_map, int my_rank, int nprocs) {
+        std::vector<std::vector<int>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, const std::unordered_map<long,long>& node_id_to_cluster_id_map, int my_rank, int nprocs) {
             std::vector<std::vector<int>> connected_components_vector;
             std::unordered_map<int, std::vector<int>> component_id_to_member_vector_map;
             igraph_vector_int_t component_id_vector;
@@ -535,22 +535,22 @@ class ConstrainedClustering {
             igraph_bitset_t already_added;
             igraph_dqueue_int_t q = IGRAPH_DQUEUE_NULL;
             igraph_vector_int_t neis = IGRAPH_VECTOR_NULL;
-            int no_of_vertices = igraph_vcount(graph_ptr);
+            long no_of_vertices = igraph_vcount(graph_ptr);
             igraph_vector_int_resize(&component_id_vector, no_of_vertices);
-            for (int vertex = 0; vertex < no_of_vertices; ++vertex) {
+            for (long vertex = 0; vertex < no_of_vertices; ++vertex) {
                 VECTOR(component_id_vector)[vertex] = -1;
             }
             igraph_bitset_init(&already_added, no_of_vertices);
             igraph_dqueue_int_init(&q, no_of_vertices > 100000 ? 10000: no_of_vertices);
             igraph_vector_int_init(&neis,0);
-            int no_of_components = 0;
+            long no_of_components = 0;
 
-            std::vector<int> node_to_original_id(igraph_vcount(graph_ptr));
+            std::vector<long> node_to_original_id(igraph_vcount(graph_ptr));
             // for(int i = 0; i < igraph_vcount(graph_ptr); i++) {
             //     node_to_original_id[i] = stoi(VAS(graph_ptr, "name", i));
             // }
             //printf("my_rank: %d connected components algorithm initialized\n");
-            for (int vertex = 0; vertex < no_of_vertices; ++vertex) {
+            for (long vertex = 0; vertex < no_of_vertices; ++vertex) {
                 if (!node_id_to_cluster_id_map.contains(vertex)) {
                     continue;
                 }
@@ -558,7 +558,7 @@ class ConstrainedClustering {
                     continue;
                 }
                 //printf("vertex to check connection: %d\n", vertex);
-                int act_component_size;
+                long act_component_size;
                 if (IGRAPH_BIT_TEST(already_added, vertex)) {
                     continue;
                 }

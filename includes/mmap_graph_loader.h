@@ -15,13 +15,13 @@ class MMapGraphLoader
 public:
     struct Edge
     {
-        int from;
-        int to;
+        long from;
+        long to;
         double weight;
     };
     static int LoadEdgelistMMap(const std::string &filename,
                                 igraph_t *graph,
-                                  std::unordered_map<int,int>* node_id_to_new_node_id_map,
+                                  std::unordered_map<long,long>* node_id_to_new_node_id_map,
                                 bool has_weights)
     {
         int fd = open(filename.c_str(), O_RDONLY);
@@ -69,12 +69,12 @@ public:
             if (ptr >= end)
                 break;
 
-            int from = ParseInt(ptr, end);
+            long from = ParseLong(ptr, end);
 
             while (ptr < end && (*ptr == '\t' || *ptr == ' '))
                 ptr++;
 
-            int to = ParseInt(ptr, end);
+            long to = ParseLong(ptr, end);
 
             double weight = 1.0;
 
@@ -116,8 +116,8 @@ public:
     }
 
     static int LoadClusteringMMap(const std::string &filename,
-                                  std::unordered_map<int, int>* node_to_cluster,
-                                std::unordered_map<int, int> &node_id_to_new_node_id_cluster)
+                                  std::unordered_map<long , long>* node_to_cluster,
+                                std::unordered_map<long, long> &node_id_to_new_node_id_cluster)
     {
         int fd = open(filename.c_str(), O_RDONLY);
         if (fd == -1) {
@@ -147,7 +147,7 @@ public:
             SkipToNextLine(ptr,end);
         }
         size_t estimated_clusters = EstimateEdgeCount(mapped, file_size);
-        std::unordered_map<int,int> cluster_id_to_new_cluster_id_map;
+        std::unordered_map<long,long> cluster_id_to_new_cluster_id_map;
 
         int cluster_id_new = 0;
         while (ptr < end) 
@@ -157,12 +157,12 @@ public:
             if (ptr >= end)
                 break;
 
-            int node = ParseInt(ptr, end);
+            int node = ParseLong(ptr, end);
 
             while (ptr < end && (*ptr == '\t' || *ptr == ' '))
                 ptr++;
 
-            int cluster = ParseInt(ptr,end);
+            int cluster = ParseLong(ptr,end);
 
             if (cluster_id_to_new_cluster_id_map.find(cluster) == cluster_id_to_new_cluster_id_map.end()) {
                 cluster_id_to_new_cluster_id_map[cluster] = cluster_id_new++;
@@ -179,9 +179,9 @@ public:
     }
 
 private:
-    static inline int ParseInt(const char *&ptr, const char *end)
+    static inline long ParseLong(const char *&ptr, const char *end)
     {
-        int result = 0;
+        long result = 0;
         while (ptr < end && (*ptr == ' ' || *ptr == '\t'))
             ptr++;
 
