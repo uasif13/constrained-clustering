@@ -210,9 +210,9 @@ class ConstrainedClustering {
 
 
             std::vector<std::vector<long>> thread_local_edges(num_threads);
-            // for (int i = 0; i < num_threads; i++) {
-            //     thread_local_edges[i].reserve(thread_edges_size);
-            // }
+            for (int i = 0; i < num_threads; i++) {
+                thread_local_edges[i].reserve(thread_edges_size);
+            }
 
             auto filter_edges = [&](long thread_id, long start_edge, long end_edge) {
                 igraph_eit_t eit;
