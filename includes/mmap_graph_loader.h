@@ -57,9 +57,8 @@ public:
         }
 
         size_t estimated_edges = EstimateEdgeCount(mapped, file_size);
-        printf("estimated_edge count of edgefile: %ld\n", estimated_edges);
         std::vector<Edge> edges;
-        edges.reserve(2ULL * estimated_edges);
+        edges.reserve(estimated_edges);
 
         int next_node_id = 0;
 
