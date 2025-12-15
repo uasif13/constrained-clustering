@@ -18,18 +18,18 @@ void output_arr(T * arr, int arr_size) {
     cout << "\n";
 }
 
-void build_displacements_output_file(long long* displacements, long long* size_array, int nprocs) {
+void build_displacements_output_file(long* displacements, long* size_array, int nprocs) {
     displacements[0] = 0;
     for (int i = 1; i < nprocs; i++) {
         displacements[i] = displacements[i-1] + size_array[i-1];
     }
 }
 
-long long update_cluster_id_array(long long* cluster_ids, long long cluster_size, long long previous_cluster_id, long long* cluster_displacements, int nprocs) {
-    long long current_cluster = 0;
-    long long updated_cluster = previous_cluster_id;
+long update_cluster_id_array(long* cluster_ids, long cluster_size, long previous_cluster_id, long* cluster_displacements, int nprocs) {
+    long current_cluster = 0;
+    long updated_cluster = previous_cluster_id;
     int count = 1;
-    for (long long i = 0; i < cluster_size; i++) {
+    for (long i = 0; i < cluster_size; i++) {
         if (cluster_ids[i] > current_cluster) {
             current_cluster = cluster_ids[i];
             updated_cluster++;
@@ -43,7 +43,7 @@ long long update_cluster_id_array(long long* cluster_ids, long long cluster_size
     return updated_cluster + 1;
 }
 
-void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<long long>>& cluster_queue, igraph_t* graph) {
+void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<long>>& cluster_queue, igraph_t* graph) {
     std::ofstream clustering_output(this->output_file);
     int current_cluster_id = 0;
     this->WriteToLogFile("final clusters:", Log::debug);
@@ -55,7 +55,7 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<long long>>
     int cluster_displacements[nprocs];
     int node_cluster_id_agg_size;
     while(!cluster_queue.empty()) {
-        std::vector<long long> current_cluster = cluster_queue.front();
+        std::vector<long> current_cluster = cluster_queue.front();
         cluster_queue.pop();
         this->WriteToLogFile("new cluster", Log::debug);
         for(size_t i = 0; i < current_cluster.size(); i ++) {
@@ -71,20 +71,20 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<long long>>
     
 }
 
-long long ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<long long>>* cluster_queue, igraph_t* graph, long long cluster_start, long long previous_cluster_id, int iteration, uint64_t* opCount) {
-    long long current_cluster_id = cluster_start;
-    long long v_count = igraph_vcount(graph);
+long ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<long>>* cluster_queue, igraph_t* graph, long cluster_start, long previous_cluster_id, int iteration, uint64_t* opCount) {
+    long current_cluster_id = cluster_start;
+    long v_count = igraph_vcount(graph);
     
     // Use heap allocation instead of VLAs
-    std::vector<long long> node_id_arr(v_count);
-    std::vector<long long> cluster_id_arr(v_count);
-    long long index_count = 0;
+    std::vector<long> node_id_arr(v_count);
+    std::vector<long> cluster_id_arr(v_count);
+    long index_count = 0;
 
     // Write to individual cluster files
     this->WriteToLogFile("final clusters:", Log::debug, my_rank);
 
     while(!cluster_queue->empty()) {
-        std::vector<long long> current_cluster = cluster_queue->front();
+        std::vector<long> current_cluster = cluster_queue->front();
         cluster_queue->pop();
         this->WriteToLogFile("new cluster size: " + std::to_string(current_cluster.size()), Log::debug, my_rank);
         for(size_t i = 0; i < current_cluster.size(); i ++) {
@@ -97,9 +97,9 @@ long long ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<lon
     }
     
     // Write to aggregate cluster file
-    std::vector<long long> index_count_arr(nprocs);
-    std::vector<long long> cluster_displacements(nprocs);
-    long long node_cluster_id_agg_size;
+    std::vector<long> index_count_arr(nprocs);
+    std::vector<long> cluster_displacements(nprocs);
+    long node_cluster_id_agg_size;
 
     this->WriteToLogFile("Write to MPI Output", Log::debug, my_rank);
     
@@ -121,15 +121,15 @@ long long ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<lon
         mpi_clustering_output.open(this->output_file);
         
         // Use heap allocation for aggregated arrays
-        std::vector<long long> node_id_arr_agg(node_cluster_id_agg_size);
-        std::vector<long long> cluster_id_arr_agg(node_cluster_id_agg_size);
+        std::vector<long> node_id_arr_agg(node_cluster_id_agg_size);
+        std::vector<long> cluster_id_arr_agg(node_cluster_id_agg_size);
         
         MPI_Gatherv(node_id_arr.data(), index_count, MPI_LONG, node_id_arr_agg.data(), index_count_arr.data(), cluster_displacements.data(), MPI_LONG, 0, MPI_COMM_WORLD, my_rank, iteration, 4, opCount);
         MPI_Gatherv(cluster_id_arr.data(), index_count, MPI_LONG, cluster_id_arr_agg.data(), index_count_arr.data(), cluster_displacements.data(), MPI_LONG, 0, MPI_COMM_WORLD, my_rank, iteration, 4, opCount);
         
         previous_cluster_id = update_cluster_id_array(cluster_id_arr_agg.data(), node_cluster_id_agg_size, previous_cluster_id, cluster_displacements.data(), nprocs);
         
-        for (long long i = 0; i < node_cluster_id_agg_size; i++) {
+        for (long i = 0; i < node_cluster_id_agg_size; i++) {
             mpi_clustering_output << node_id_arr_agg[i] << " " << cluster_id_arr_agg[i] << "\n";
         }
         mpi_clustering_output.close();
@@ -142,7 +142,7 @@ long long ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<lon
     MPI_Bcast(&previous_cluster_id, 1, MPI_LONG, 0, MPI_COMM_WORLD, my_rank, iteration, 0, opCount);
     return previous_cluster_id;
 }
-void ConstrainedClustering::WritePartitionMap(std::map<long long, long long>& final_partition) {
+void ConstrainedClustering::WritePartitionMap(std::map<long, long>& final_partition) {
     std::ofstream clustering_output(this->output_file);
     for(auto const& [node_id, cluster_id]: final_partition) {
         clustering_output << node_id << " " << cluster_id << '\n';

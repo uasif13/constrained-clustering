@@ -163,10 +163,10 @@ int MinCutCustom::ComputeMinCut() {
 
 /*     return edge_cut_size; */
 /* } */
-const std::vector<long long>& MinCutCustom::GetInPartition() const {
+const std::vector<long>& MinCutCustom::GetInPartition() const {
     return this->in_partition;
 }
-const std::vector<long long>& MinCutCustom::GetOutPartition() const {
+const std::vector<long>& MinCutCustom::GetOutPartition() const {
     return this->out_partition;
 }
 /* const std::vector<int>& MinCutCustom::GetAllPartitions() const { */

@@ -15,7 +15,7 @@ uint64_t messageOps[MAX_BUF_SIZE];
 double totalTimeOps[MAX_BUF_SIZE];
 uint64_t totalBytesOps[MAX_BUF_SIZE];
 
-int MPI_Bcast(void *buffer, long long count, MPI_Datatype datatype, int emitter_rank, MPI_Comm communicator, int my_rank, int iteration, int message_id, uint64_t* opCount)
+int MPI_Bcast(void *buffer, long count, MPI_Datatype datatype, int emitter_rank, MPI_Comm communicator, int my_rank, int iteration, int message_id, uint64_t* opCount)
 {
   if (count > INT_MAX) {
     std::cerr << "Error: MPI_Bcast count " << count << " exceeds INT_MAX" << std::endl;
@@ -36,7 +36,7 @@ int MPI_Bcast(void *buffer, long long count, MPI_Datatype datatype, int emitter_
   return result;
 }
 
-int MPI_Allgather(const void *buffer_send, long long count_send, MPI_Datatype datatype_send, void *buffer_recv, long long count_recv, MPI_Datatype datatype_recv, MPI_Comm communicator, int my_rank, int iteration, int message_id, uint64_t* opCount)
+int MPI_Allgather(const void *buffer_send, long count_send, MPI_Datatype datatype_send, void *buffer_recv, long count_recv, MPI_Datatype datatype_recv, MPI_Comm communicator, int my_rank, int iteration, int message_id, uint64_t* opCount)
 {
   if (count_send > INT_MAX || count_recv > INT_MAX) {
     std::cerr << "Error: MPI_Allgather count exceeds INT_MAX" << std::endl;
@@ -57,7 +57,7 @@ int MPI_Allgather(const void *buffer_send, long long count_send, MPI_Datatype da
   return result;
 }
 
-int MPI_Allgatherv(const void *buffer_send, long long count_send, MPI_Datatype datatype_send, void *buffer_recv, const long long* count_recv, const long long* displacements, MPI_Datatype datatype_recv, MPI_Comm communicator, int my_rank, int iteration, int message_id, uint64_t* opCount)
+int MPI_Allgatherv(const void *buffer_send, long count_send, MPI_Datatype datatype_send, void *buffer_recv, const long* count_recv, const long* displacements, MPI_Datatype datatype_recv, MPI_Comm communicator, int my_rank, int iteration, int message_id, uint64_t* opCount)
 {
   if (count_send > INT_MAX) {
     std::cerr << "Error: MPI_Allgatherv count_send exceeds INT_MAX" << std::endl;
@@ -72,7 +72,7 @@ int MPI_Allgatherv(const void *buffer_send, long long count_send, MPI_Datatype d
   if (count_recv == NULL || displacements == NULL) {
     result = PMPI_Allgatherv(buffer_send, (int)count_send, datatype_send, buffer_recv, NULL, NULL, datatype_recv, communicator);
   } else {
-    // Need to convert long long arrays to int arrays for PMPI call
+    // Need to convert long arrays to int arrays for PMPI call
     int nprocs;
     PMPI_Comm_size(communicator, &nprocs);
     
@@ -108,7 +108,7 @@ int MPI_Allgatherv(const void *buffer_send, long long count_send, MPI_Datatype d
   return result;
 }
 
-int MPI_Gather(const void *buffer_send, long long count_send, MPI_Datatype datatype_send, void *buffer_recv, long long count_recv, MPI_Datatype datatype_recv, int root, MPI_Comm communicator, int my_rank, int iteration, int message_id, uint64_t* opCount)
+int MPI_Gather(const void *buffer_send, long count_send, MPI_Datatype datatype_send, void *buffer_recv, long count_recv, MPI_Datatype datatype_recv, int root, MPI_Comm communicator, int my_rank, int iteration, int message_id, uint64_t* opCount)
 {
   if (count_send > INT_MAX || count_recv > INT_MAX) {
     std::cerr << "Error: MPI_Gather count exceeds INT_MAX" << std::endl;
@@ -129,7 +129,7 @@ int MPI_Gather(const void *buffer_send, long long count_send, MPI_Datatype datat
   return result;
 }
 
-int MPI_Gatherv(const void *buffer_send, long long count_send, MPI_Datatype datatype_send, void *buffer_recv, const long long* count_recv, const long long* displacements, MPI_Datatype datatype_recv, int root, MPI_Comm communicator, int my_rank, int iteration, int message_id, uint64_t* opCount)
+int MPI_Gatherv(const void *buffer_send, long count_send, MPI_Datatype datatype_send, void *buffer_recv, const long* count_recv, const long* displacements, MPI_Datatype datatype_recv, int root, MPI_Comm communicator, int my_rank, int iteration, int message_id, uint64_t* opCount)
 {
   if (count_send > INT_MAX) {
     std::cerr << "Error: MPI_Gatherv count_send exceeds INT_MAX" << std::endl;
@@ -144,7 +144,7 @@ int MPI_Gatherv(const void *buffer_send, long long count_send, MPI_Datatype data
   if (count_recv == NULL || displacements == NULL) {
     result = PMPI_Gatherv(buffer_send, (int)count_send, datatype_send, buffer_recv, NULL, NULL, datatype_recv, root, communicator);
   } else {
-    // Need to convert long long arrays to int arrays for PMPI call
+    // Need to convert long arrays to int arrays for PMPI call
     int nprocs;
     PMPI_Comm_size(communicator, &nprocs);
     
