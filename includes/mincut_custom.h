@@ -11,14 +11,14 @@ class MinCutCustom {
         };
         int ComputeMinCut();
         /* int ComputeAllMinCuts(); */
-        const std::vector<long>& GetInPartition() const;
-        const std::vector<long>& GetOutPartition() const;
+        const std::vector<long long>& GetInPartition() const;
+        const std::vector<long long>& GetOutPartition() const;
         /* const std::vector<std::vector<int>>& GetAllPartitions() const; */
     private:
-        std::vector<long> in_partition;
-        std::vector<long> out_partition;
+        std::vector<long long> in_partition;
+        std::vector<long long> out_partition;
         /* std::vector<std::vector<int>> all_partitions; */
-        std::map<long, long> new_to_old_node_id_map;
+        std::map<long long, long long> new_to_old_node_id_map;
         const igraph_t* graph;
 };
 

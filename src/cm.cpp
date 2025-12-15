@@ -68,7 +68,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     printf("my_rank: %d load graph\n", my_rank);
     igraph_set_attribute_table(&igraph_cattribute_table);
     igraph_t graph;
-    std::unordered_map<long, long> original_to_new_id_unordered_map;
+    std::unordered_map<long long, long long> original_to_new_id_unordered_map;
     MMapGraphLoader::LoadEdgelistMMap(this->edgelist, &graph,&original_to_new_id_unordered_map,false);
     SetIgraphAllEdgesWeight(&graph, 1.0);
     printf("my_rank: %d finished loading graph\n", my_rank);
@@ -80,14 +80,14 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     edge_count = "my_rank: %d before rice edge_count " + to_string(igraph_ecount(&graph));
     this -> WriteToLogFile(edge_count, Log::info, my_rank);
     printf("my_rank: %d before rice edge_count: %d\n", my_rank, igraph_ecount(&graph));
-    std::unordered_map<long, long> node_id_to_cluster_id_unordered_map;
+    std::unordered_map<long long, long long> node_id_to_cluster_id_unordered_map;
     
     if(this->existing_clustering == "") {
         /* int seed = uni(rng); */
         // not working
         printf("my_rank: %d no clustering data\n", my_rank);
         int seed = 0;
-        std::map<long, long> node_id_to_cluster_id_map = ConstrainedClustering::GetCommunities("", this->algorithm, seed, this->clustering_parameter, &graph);
+        std::map<long long, long long> node_id_to_cluster_id_map = ConstrainedClustering::GetCommunities("", this->algorithm, seed, this->clustering_parameter, &graph);
         // output_map(node_id_to_cluster_id_map);
         ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_map);
     } else if(this->existing_clustering != "") {
@@ -110,7 +110,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     // std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
     //printf("my_rank: %d connected components start\n", my_rank);
     this->WriteToLogFile("Getting all the connected components" , Log::debug, my_rank);
-    std::vector<std::vector<long>> connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, node_id_to_cluster_id_unordered_map, my_rank, nprocs);
+    std::vector<std::vector<long long>> connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, node_id_to_cluster_id_unordered_map, my_rank, nprocs);
 
     this->WriteToLogFile("Finished Getting all the connected components" , Log::debug, my_rank);
     // store the results into the queue that each thread pulls from
@@ -139,7 +139,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     }
     /** SECTION Get Connected Components END **/
     int previous_done_being_clustered_size = 0;
-    long previous_cluster_id = 0;
+    long long previous_cluster_id = 0;
     for (int i = 0; i < nprocs; i++) {
       mincut_continue[i] = 1;
     }
