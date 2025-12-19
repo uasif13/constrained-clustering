@@ -67,7 +67,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
 
     igraph_set_attribute_table(&igraph_cattribute_table);
     igraph_t graph;
-    std::unordered_map<int, int> original_to_new_id_map_nonmpi;
+    std::unordered_map<long, long> original_to_new_id_map_nonmpi;
     MMapGraphLoader::LoadEdgelistMMap(this->edgelist, &graph,&original_to_new_id_map_nonmpi,false);
     SetIgraphAllEdgesWeight(&graph, 1.0);
 
@@ -79,8 +79,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     edge_count = "my_rank: %d before rice edge_count " + to_string(igraph_ecount(&graph));
     // this -> WriteToLogFile(edge_count, Log::info, my_rank);
     printf("my_rank: %d before rice edge_count: %d\n", my_rank, igraph_ecount(&graph));
-    ClusteringData data;
-    std::unordered_map<int, int> node_id_to_cluster_id_unordered_map;
+    std::unordered_map<long, long> node_id_to_cluster_id_unordered_map;
     
     if(this->existing_clustering == "") {
         /* int seed = uni(rng); */
@@ -89,7 +88,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
         int seed = 0;
         this->WriteToLogFile("Loading the communities" , Log::debug, my_rank);
 
-        std::map<int, int> node_id_to_cluster_id_map = ConstrainedClustering::GetCommunities("", this->algorithm, seed, this->clustering_parameter, &graph);
+        std::map<long, long> node_id_to_cluster_id_map = ConstrainedClustering::GetCommunities("", this->algorithm, seed, this->clustering_parameter, &graph);
         // output_map(node_id_to_cluster_id_map);
         ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_map);
     } else if(this->existing_clustering != "") {
@@ -122,7 +121,7 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
     /** SECTION Get Connected Components START **/
     this->WriteToLogFile("Getting all the connected components" , Log::debug, my_rank);
 
-    std::vector<std::vector<int>> connected_components_vector;
+    std::vector<std::vector<long>> connected_components_vector;
     connected_components_vector = ConstrainedClustering::GetConnectedComponentsDistributed(&graph, node_id_to_cluster_id_unordered_map, my_rank, nprocs);
 
     this->WriteToLogFile("Finished Getting all the connected components" , Log::debug, my_rank);
@@ -164,8 +163,8 @@ int CM::main(int my_rank, int nprocs, uint64_t* opCount) {
 
     
     this->WriteToLogFile("my_rank: " + to_string(my_rank) + " Writing output to: " + this->output_file, Log::info, my_rank);
-    // this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id, 1, opCount);
-    previous_cluster_id = MMapWriter::WriteDistributed(&CM::done_being_clustered_clusters, &graph, this->output_file, cc_start, previous_cluster_id, my_rank, nprocs);    
+    this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id, 1, opCount);
+    // previous_cluster_id = MMapWriter::WriteDistributed(&CM::done_being_clustered_clusters, &graph, this->output_file, cc_start, previous_cluster_id, my_rank, nprocs);    
     igraph_destroy(&graph);
     return 0;
 }

@@ -15,13 +15,14 @@ class MMapGraphLoader
 public:
     struct Edge
     {
-        int from;
-        int to;
+        long from;
+        long to;
         double weight;
     };
+    
     static int LoadEdgelistMMap(const std::string &filename,
                                 igraph_t *graph,
-                                  std::unordered_map<int,int>* node_id_to_new_node_id_map,
+                                std::unordered_map<long,long>* node_id_to_new_node_id_map,
                                 bool has_weights)
     {
         int fd = open(filename.c_str(), O_RDONLY);
@@ -57,10 +58,11 @@ public:
         }
 
         size_t estimated_edges = EstimateEdgeCount(mapped, file_size);
+        printf("estimated_edge count of edgefile: %ld\n", estimated_edges);
         std::vector<Edge> edges;
         edges.reserve(estimated_edges);
 
-        int next_node_id = 0;
+        long next_node_id = 0;
 
         while (ptr < end)
         {
@@ -69,22 +71,22 @@ public:
             if (ptr >= end)
                 break;
 
-            int from = ParseInt(ptr, end);
+            long from = ParseLong(ptr, end);
 
             while (ptr < end && (*ptr == '\t' || *ptr == ' '))
                 ptr++;
 
-            int to = ParseInt(ptr, end);
+            long to = ParseLong(ptr, end);
 
             double weight = 1.0;
 
             if (node_id_to_new_node_id_map->find(from) == node_id_to_new_node_id_map->end())
             {
-                node_id_to_new_node_id_map->insert({from,next_node_id++});
+                node_id_to_new_node_id_map->insert({from, next_node_id++});
             }
             if (node_id_to_new_node_id_map->find(to) == node_id_to_new_node_id_map->end())
             {
-                node_id_to_new_node_id_map->insert({to,next_node_id++});
+                node_id_to_new_node_id_map->insert({to, next_node_id++});
             }
 
             edges.push_back({node_id_to_new_node_id_map->at(from), node_id_to_new_node_id_map->at(to), weight});
@@ -96,10 +98,8 @@ public:
         igraph_vector_int_init(&edge_vector, edges.size() * 2);
         for (size_t i = 0; i < edges.size(); i++)
         {
-            VECTOR(edge_vector)
-            [2 * i] = edges[i].from;
-            VECTOR(edge_vector)
-            [2 * i + 1] = edges[i].to;
+            VECTOR(edge_vector)[2 * i] = edges[i].from;
+            VECTOR(edge_vector)[2 * i + 1] = edges[i].to;
         }
 
         igraph_empty(graph, next_node_id, IGRAPH_UNDIRECTED);
@@ -116,8 +116,8 @@ public:
     }
 
     static int LoadClusteringMMap(const std::string &filename,
-                                  std::unordered_map<int, int>* node_to_cluster,
-                                std::unordered_map<int, int> &node_id_to_new_node_id_cluster)
+                                  std::unordered_map<long, long>* node_to_cluster,
+                                  std::unordered_map<long, long> &node_id_to_new_node_id_cluster)
     {
         int fd = open(filename.c_str(), O_RDONLY);
         if (fd == -1) {
@@ -144,12 +144,12 @@ public:
 
         if (ptr < end && (*ptr < '0' || *ptr > '9'))
         {
-            SkipToNextLine(ptr,end);
+            SkipToNextLine(ptr, end);
         }
         size_t estimated_clusters = EstimateEdgeCount(mapped, file_size);
-        std::unordered_map<int,int> cluster_id_to_new_cluster_id_map;
+        std::unordered_map<long, long> cluster_id_to_new_cluster_id_map;
 
-        int cluster_id_new = 0;
+        long cluster_id_new = 0;
         while (ptr < end) 
         {
             while (ptr < end && (*ptr == '\n' || *ptr == '\r'))
@@ -157,20 +157,20 @@ public:
             if (ptr >= end)
                 break;
 
-            int node = ParseInt(ptr, end);
+            long node = ParseLong(ptr, end);
 
             while (ptr < end && (*ptr == '\t' || *ptr == ' '))
                 ptr++;
 
-            int cluster = ParseInt(ptr,end);
+            long cluster = ParseLong(ptr, end);
 
             if (cluster_id_to_new_cluster_id_map.find(cluster) == cluster_id_to_new_cluster_id_map.end()) {
                 cluster_id_to_new_cluster_id_map[cluster] = cluster_id_new++;
             }
 
-            node_to_cluster->insert({node_id_to_new_node_id_cluster[node],cluster_id_to_new_cluster_id_map[cluster]});
+            node_to_cluster->insert({node_id_to_new_node_id_cluster[node], cluster_id_to_new_cluster_id_map[cluster]});
 
-            SkipToNextLine(ptr,end);
+            SkipToNextLine(ptr, end);
         }
 
         munmap(mapped, file_size);
@@ -179,9 +179,9 @@ public:
     }
 
 private:
-    static inline int ParseInt(const char *&ptr, const char *end)
+    static inline long ParseLong(const char *&ptr, const char *end)
     {
-        int result = 0;
+        long result = 0;
         while (ptr < end && (*ptr == ' ' || *ptr == '\t'))
             ptr++;
 
@@ -192,6 +192,7 @@ private:
         }
         return result;
     }
+    
     static inline void SkipToNextLine(const char *&ptr, const char *end)
     {
         while (ptr < end && *ptr != '\n')
@@ -199,6 +200,7 @@ private:
         if (ptr < end)
             ptr++;
     }
+    
     static size_t EstimateEdgeCount(const char *data, size_t size);
 };
 #endif

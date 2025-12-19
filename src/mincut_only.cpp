@@ -18,12 +18,12 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t* opCount) {
     int iter_count = 0;
 
     ConstrainedClustering::initializeSlice(&graph);
-    std::map<std::string, int> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMapDistributed(&graph);
-    std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map, this->existing_clustering);
+    std::map<std::string, long> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMapDistributed(&graph);
+    std::map<long, long> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map, this->existing_clustering);
     ConstrainedClustering::RemoveInterClusterEdgesDistributed(&graph, new_node_id_to_cluster_id_map);
 
     /** SECTION Get Connected Components START **/
-    std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
+    std::vector<std::vector<long>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
     /** SECTION Get Connected Components END **/
        int cc_count = connected_components_vector.size();
     // for (int i = 0 ; i < cc_count; i++) {
@@ -91,7 +91,7 @@ int MincutOnly::main(int my_rank, int nprocs, uint64_t* opCount) {
 
 
     this->WriteToLogFile("Writing output to: " + this->output_file, Log::info);
-    this->WriteClusterQueue(MincutOnly::done_being_mincut_clusters, &graph, cc_start);
+    this->WriteClusterQueue(MincutOnly::done_being_mincut_clusters, &graph);
     igraph_destroy(&graph);
     return 0;
 }
