@@ -11,8 +11,8 @@ class MincutOnly : public ConstrainedClustering {
         };
         int main() override;
 
-        static inline std::vector<std::vector<int>> GetConnectedComponentsOnPartition(const igraph_t* graph, std::vector<int>& partition) {
-            std::vector<std::vector<int>> cluster_vectors;
+        static inline std::vector<std::vector<long>> GetConnectedComponentsOnPartition(const igraph_t* graph, std::vector<long>& partition) {
+            std::vector<std::vector<long>> cluster_vectors;
             igraph_vector_int_t nodes_to_keep;
             igraph_vector_int_t new_id_to_old_id_map;
             igraph_vector_int_init(&new_id_to_old_id_map, partition.size());
@@ -22,11 +22,11 @@ class MincutOnly : public ConstrainedClustering {
             }
             igraph_t induced_subgraph;
             igraph_induced_subgraph_map(graph, &induced_subgraph, igraph_vss_vector(&nodes_to_keep), IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH, NULL, &new_id_to_old_id_map);
-            std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&induced_subgraph);
+            std::vector<std::vector<long>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&induced_subgraph);
             for(size_t i = 0; i < connected_components_vector.size(); i ++) {
-                std::vector<int> translated_cluster_vector;
+                std::vector<long> translated_cluster_vector;
                 for(size_t j = 0; j < connected_components_vector.at(i).size(); j ++) {
-                    int new_id = connected_components_vector.at(i).at(j);
+                    long new_id = connected_components_vector.at(i).at(j);
                     translated_cluster_vector.push_back(VECTOR(new_id_to_old_id_map)[new_id]);
                 }
                 cluster_vectors.push_back(translated_cluster_vector);
@@ -43,10 +43,10 @@ class MincutOnly : public ConstrainedClustering {
                 to_be_mincut_condition_variable.wait(to_be_mincut_lock, []() {
                     return !MincutOnly::to_be_mincut_clusters.empty();
                 });
-                std::vector<int> current_cluster = MincutOnly::to_be_mincut_clusters.front();
+                std::vector<long> current_cluster = MincutOnly::to_be_mincut_clusters.front();
                 MincutOnly::to_be_mincut_clusters.pop();
                 to_be_mincut_lock.unlock();
-                if(current_cluster.size() == 1 || current_cluster[0] == -1) {
+                if(current_cluster.size() == 1 && current_cluster[0] == -1) {
                     // done with work!
                     return;
                 }
@@ -74,8 +74,8 @@ class MincutOnly : public ConstrainedClustering {
                 /* SetIgraphAllEdgesWeight(&induced_subgraph, 1.0); */
                 MinCutCustom mcc(&induced_subgraph);
                 int edge_cut_size = mcc.ComputeMinCut();
-                std::vector<int> in_partition = mcc.GetInPartition();
-                std::vector<int> out_partition = mcc.GetOutPartition();
+                std::vector<long> in_partition = mcc.GetInPartition();
+                std::vector<long> out_partition = mcc.GetOutPartition();
 
                 bool current_criterion = false;
                 if(connectedness_criterion == ConnectednessCriterion::Simple) {
@@ -92,9 +92,9 @@ class MincutOnly : public ConstrainedClustering {
                     /*     out_partition[i] = VECTOR(new_id_to_old_id_map)[out_partition[i]]; */
                     /* } */
                     if(in_partition.size() > 1) {
-                        std::vector<std::vector<int>> in_clusters = GetConnectedComponentsOnPartition(&induced_subgraph, in_partition);
+                        std::vector<std::vector<long>> in_clusters = GetConnectedComponentsOnPartition(&induced_subgraph, in_partition);
                         for(size_t i = 0; i < in_clusters.size(); i ++) {
-                            std::vector<int> translated_in_clusters;
+                            std::vector<long> translated_in_clusters;
                             for(size_t j = 0; j < in_clusters[i].size(); j ++) {
                                 translated_in_clusters.push_back(VECTOR(new_id_to_old_id_map)[in_clusters[i][j]]);
                             }
@@ -105,9 +105,9 @@ class MincutOnly : public ConstrainedClustering {
                         }
                     }
                     if(out_partition.size() > 1) {
-                        std::vector<std::vector<int>> out_clusters = GetConnectedComponentsOnPartition(&induced_subgraph, out_partition);
+                        std::vector<std::vector<long>> out_clusters = GetConnectedComponentsOnPartition(&induced_subgraph, out_partition);
                         for(size_t i = 0; i < out_clusters.size(); i ++) {
-                            std::vector<int> translated_out_clusters;
+                            std::vector<long> translated_out_clusters;
                             for(size_t j = 0; j < out_clusters[i].size(); j ++) {
                                 translated_out_clusters.push_back(VECTOR(new_id_to_old_id_map)[out_clusters[i][j]]);
                             }
@@ -130,9 +130,9 @@ class MincutOnly : public ConstrainedClustering {
     private:
         static inline std::mutex to_be_mincut_mutex;
         static inline std::condition_variable to_be_mincut_condition_variable;
-        static inline std::queue<std::vector<int>> to_be_mincut_clusters;
+        static inline std::queue<std::vector<long>> to_be_mincut_clusters;
         static inline std::mutex done_being_mincut_mutex;
-        static inline std::queue<std::vector<int>> done_being_mincut_clusters;
+        static inline std::queue<std::vector<long>> done_being_mincut_clusters;
         ConnectednessCriterion connectedness_criterion;
 };
 

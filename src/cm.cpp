@@ -1,40 +1,45 @@
 #include "cm.h"
+#include <igraph.h>
+#include <string>
+#include <unordered_map>
 
 int CM::main() {
-    /* std::random_device rd; */
-    /* std::mt19937 rng{rd()}; */
-    /* std::uniform_int_distribution<int> uni(0, 100000); */
     this->WriteToLogFile("Loading the initial graph" , Log::info);
-    FILE* edgelist_file = fopen(this->edgelist.c_str(), "r");
-    igraph_t graph;
+
     igraph_set_attribute_table(&igraph_cattribute_table);
-    igraph_read_graph_ncol(&graph, edgelist_file, NULL, 1, IGRAPH_ADD_WEIGHTS_IF_PRESENT, IGRAPH_UNDIRECTED);
-    if(!igraph_cattribute_has_attr(&graph, IGRAPH_ATTRIBUTE_EDGE, "weight")) {
-        SetIgraphAllEdgesWeight(&graph, 1.0);
-    }
-    /* igraph_read_graph_edgelist(&graph, edgelist_file, 0, false); */
-    fclose(edgelist_file);
+    igraph_t graph;
+    std::unordered_map<long, long> original_to_new_id_unordered_map;
+    MMapGraphLoader::LoadEdgelistMMap(this->edgelist, &graph,&original_to_new_id_unordered_map,false);
+    SetIgraphAllEdgesWeight(&graph, 1.0);
     this->WriteToLogFile("Finished loading the initial graph" , Log::info);
     /* std::cerr << EAN(&graph, "weight", 0) << std::endl; */
-
-
-    /* int before_mincut_number_of_clusters = -1; */
-    int after_mincut_number_of_clusters = -2;
-    int iter_count = 0;
-
+    
+    int graph_vcount = igraph_vcount(&graph);
+    string edge_count;
+    edge_count = "before rice edge_count " + to_string(igraph_ecount(&graph));
+    this -> WriteToLogFile(edge_count, Log::info);
+    std::unordered_map<long, long> node_id_to_cluster_id_unordered_map;
+    
     if(this->existing_clustering == "") {
         /* int seed = uni(rng); */
+        // not working
         int seed = 0;
-        std::map<int, int> node_id_to_cluster_id_map = ConstrainedClustering::GetCommunities("", this->algorithm, seed, this->clustering_parameter, &graph);
+        std::map<long, long> node_id_to_cluster_id_map = ConstrainedClustering::GetCommunities("", this->algorithm, seed, this->clustering_parameter, &graph);
+        // output_map(node_id_to_cluster_id_map);
         ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_map);
     } else if(this->existing_clustering != "") {
-        std::map<std::string, int> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMap(&graph);
-        std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map, this->existing_clustering);
-        ConstrainedClustering::RemoveInterClusterEdges(&graph, new_node_id_to_cluster_id_map);
+        // non mpi
+        this->WriteToLogFile("Loading the new id to cluster id map" , Log::debug);
+        MMapGraphLoader::LoadClusteringMMap(this->existing_clustering, &node_id_to_cluster_id_unordered_map, original_to_new_id_unordered_map);
+        this->WriteToLogFile("Finished loading the new id to cluster id map" , Log::debug);    
+        // output_map(original_to_new_id_map_nonmpi);
+        this->WriteToLogFile("Removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_ecount(&graph)) , Log::debug);
+        ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_unordered_map, this-> num_processors);
+        this->WriteToLogFile("Finished removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_ecount(&graph)) , Log::debug);
     }
 
     /** SECTION Get Connected Components START **/
-    std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
+    std::vector<std::vector<long>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
     // store the results into the queue that each thread pulls from
     
     /** SECTION Get Connected Components END **/
@@ -42,11 +47,6 @@ int CM::main() {
     
     int current_components_vector_index = 0;
     int cc_count = connected_components_vector.size();
-
-    this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::debug);
-    if(iter_count % 10 == 0) {
-        this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::info);
-    }
 
     /** SECTION MinCutOnceAndCluster Each Connected Component START **/
     this->WriteToLogFile(std::to_string(cc_count) + " [connected components / clusters] to be mincut", Log::debug);
