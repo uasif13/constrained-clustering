@@ -86,9 +86,9 @@ long ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<long>>* 
     while(!cluster_queue->empty()) {
         std::vector<long> current_cluster = cluster_queue->front();
         cluster_queue->pop();
-        this->WriteToLogFile("new cluster size: " + std::to_string(current_cluster.size()), Log::debug, my_rank);
+	//        this->WriteToLogFile("new cluster size: " + std::to_string(current_cluster.size()), Log::debug, my_rank);
         for(size_t i = 0; i < current_cluster.size(); i ++) {
-            this->WriteToLogFile(VAS(graph, "name", current_cluster[i]), Log::debug, my_rank);
+          //  this->WriteToLogFile(VAS(graph, "name", current_cluster[i]), Log::debug, my_rank);
             node_id_arr[index_count] = stol(VAS(graph, "name", current_cluster[i]));
             cluster_id_arr[index_count] = current_cluster_id;
             index_count++;
