@@ -75,7 +75,7 @@ int MinCutCustom::ComputeMinCut() {
     G->computeDegrees();
 
     //cactus_mincut<std::shared_ptr<mutable_graph>> mc;
-     noi_minimum_cut<std::shared_ptr<mutable_graph>> mc;
+    noi_minimum_cut<std::shared_ptr<mutable_graph>> mc;
     edge_cut_size = mc.perform_minimum_cut(G);
     /* std::cerr << "mincut_custom.cpp: current edge cut size is " << edge_cut_size << std::endl; */
 
