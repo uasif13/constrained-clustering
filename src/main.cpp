@@ -1,6 +1,4 @@
 #include <iostream>
-#include <mpi_telemetry.h>
-
 #include "argparse.h"
 #include "constrained.h"
 #include "library.h"
@@ -106,8 +104,8 @@ int main(int argc, char* argv[]) {
         .scan<'d',int>();
 
     
-    main_program.add_subparser(cm);
-    main_program.add_subparser(mincut_only);
+    // main_program.add_subparser(cm);
+    // main_program.add_subparser(mincut_only);
     main_program.add_subparser(split_graph);
 
     try {
@@ -118,55 +116,56 @@ int main(int argc, char* argv[]) {
         std::exit(1);
     }
 
-    MPI_Init(&argc, &argv);
-    int my_rank;
-    int nprocs;
-    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
-    uint64_t * opCount;
-    opCount = new uint64_t[nprocs];
-    for (int i = 0; i < nprocs; i++) {
-        opCount[i] = 0;
-    }
-    std::string mpi_log_file;
+    // MPI_Init(&argc, &argv);
+    // int my_rank;
+    // int nprocs;
+    // MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    // MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+    // uint64_t * opCount;
+    // opCount = new uint64_t[nprocs];
+    // for (int i = 0; i < nprocs; i++) {
+    //     opCount[i] = 0;
+    // }
+    // std::string mpi_log_file;
     // printf("my_rank: %d nprocs: %d\n", my_rank, nprocs);
-    if(main_program.is_subcommand_used(cm)) {
-        std::string edgelist = cm.get<std::string>("--edgelist");
-        std::string algorithm = cm.get<std::string>("--algorithm");
-        double resolution = cm.get<double>("--resolution");
-        std::string existing_clustering = cm.get<std::string>("--existing-clustering");
-        int num_processors = cm.get<int>("--num-processors");
-        std::string output_header = cm.get<std::string>("--output-header");
-        std::string output_file = cm.get<std::string>("--output-file");
-        std::string log_file = cm.get<std::string>("--log-file");
-        mpi_log_file = log_file + "_mpi.log";
-        log_file = log_file + "_" + to_string(my_rank) + ".log";
-        int log_level = cm.get<int>("--log-level") - 1; // so that enum is cleaner
-        // printf("my_rank: %d create cm object\n", my_rank);
-        // SplitGraph* split_graph = new SplitGraph(edgelist, existing_clustering, nprocs, output_header, log_file, log_level);
-        // split_graph -> main();
-        // delete split_graph;
-        ConstrainedClustering* cm = new CM(edgelist, algorithm, resolution, existing_clustering, num_processors, output_header, output_file, log_file, log_level, my_rank, nprocs);
-        random_functions::setSeed(0);
-        // printf("my_rank: %d call main\n", my_rank);
-        cm->main(my_rank, nprocs, opCount);
-        delete cm;
-    } else if(main_program.is_subcommand_used(mincut_only)) {
-        std::string edgelist = mincut_only.get<std::string>("--edgelist");
-        std::string existing_clustering = mincut_only.get<std::string>("--existing-clustering");
-        int num_processors = mincut_only.get<int>("--num-processors");
-        std::string output_file = mincut_only.get<std::string>("--output-file");
-        output_file = output_file + "_" + to_string(my_rank);
-        std::string log_file = mincut_only.get<std::string>("--log-file");
-        int log_level = mincut_only.get<int>("--log-level") - 1; // so that enum is cleaner
-        log_file = log_file + "_" + to_string(my_rank);
-        mpi_log_file = log_file + "_mpi";
-        ConnectednessCriterion connectedness_criterion = static_cast<ConnectednessCriterion>(mincut_only.get<int>("--connectedness-criterion"));
-        ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level);
-        random_functions::setSeed(0);
-        mincut_only->main(my_rank, nprocs, opCount);
-        delete mincut_only;
-    } else if (main_program.is_subcommand_used(split_graph)) {
+    // if(main_program.is_subcommand_used(cm)) {
+    //     std::string edgelist = cm.get<std::string>("--edgelist");
+    //     std::string algorithm = cm.get<std::string>("--algorithm");
+    //     double resolution = cm.get<double>("--resolution");
+    //     std::string existing_clustering = cm.get<std::string>("--existing-clustering");
+    //     int num_processors = cm.get<int>("--num-processors");
+    //     std::string output_header = cm.get<std::string>("--output-header");
+    //     std::string output_file = cm.get<std::string>("--output-file");
+    //     std::string log_file = cm.get<std::string>("--log-file");
+    //     mpi_log_file = log_file + "_mpi.log";
+    //     log_file = log_file + "_" + to_string(my_rank) + ".log";
+    //     int log_level = cm.get<int>("--log-level") - 1; // so that enum is cleaner
+    //     // printf("my_rank: %d create cm object\n", my_rank);
+    //     // SplitGraph* split_graph = new SplitGraph(edgelist, existing_clustering, nprocs, output_header, log_file, log_level);
+    //     // split_graph -> main();
+    //     // delete split_graph;
+    //     ConstrainedClustering* cm = new CM(edgelist, algorithm, resolution, existing_clustering, num_processors, output_header, output_file, log_file, log_level, my_rank, nprocs);
+    //     random_functions::setSeed(0);
+    //     // printf("my_rank: %d call main\n", my_rank);
+    //     cm->main(my_rank, nprocs, opCount);
+    //     delete cm;
+    // } else if(main_program.is_subcommand_used(mincut_only)) {
+    //     std::string edgelist = mincut_only.get<std::string>("--edgelist");
+    //     std::string existing_clustering = mincut_only.get<std::string>("--existing-clustering");
+    //     int num_processors = mincut_only.get<int>("--num-processors");
+    //     std::string output_file = mincut_only.get<std::string>("--output-file");
+    //     output_file = output_file + "_" + to_string(my_rank);
+    //     std::string log_file = mincut_only.get<std::string>("--log-file");
+    //     int log_level = mincut_only.get<int>("--log-level") - 1; // so that enum is cleaner
+    //     log_file = log_file + "_" + to_string(my_rank);
+    //     mpi_log_file = log_file + "_mpi";
+    //     ConnectednessCriterion connectedness_criterion = static_cast<ConnectednessCriterion>(mincut_only.get<int>("--connectedness-criterion"));
+    //     ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level);
+    //     random_functions::setSeed(0);
+    //     mincut_only->main(my_rank, nprocs, opCount);
+    //     delete mincut_only;
+    // } else 
+    if (main_program.is_subcommand_used(split_graph)) {
         std::string edgelist = split_graph.get<std::string>("--edgelist");
         std::string existing_clustering = split_graph.get<std::string>("--existing-clustering");
         int num_partitions = split_graph.get<int>("--partitions");
@@ -175,7 +174,7 @@ int main(int argc, char* argv[]) {
         int log_level = split_graph.get<int>("--log-level");
         SplitGraph* split_graph = new SplitGraph(edgelist, existing_clustering, num_partitions, output_header, log_file, log_level);
         split_graph->main();
-        delete split_graph;
+        // delete split_graph;
+        std::cerr << "Deallocated split_graph object" << std::endl;
     }
-    MPI_Finalize(my_rank,nprocs, opCount, mpi_log_file);
 }

@@ -29,25 +29,34 @@ int SplitGraph::main() {
         output_files[i] = std::ofstream(this -> output_header + "_" + to_string(i) + ".tsv");
     }
     this -> WriteToLogFile("Finished creating output streams", Log::info);
+    int count = 1;
+    string line;
     while (input_graph >> start_node >> end_node) {
         if (node_id_to_cluster_id_map.contains(start_node) && node_id_to_cluster_id_map.contains(end_node)
         && node_id_to_cluster_id_map.at(start_node) == node_id_to_cluster_id_map.at(end_node)) {
-            int partition = node_id_to_cluster_id_map[start_node] / cluster_size;
+            int partition = node_id_to_cluster_id_map[start_node] % this -> num_partitions;
             this -> WriteToLogFile("Edge to write: " + to_string(start_node) + "\t" + to_string(end_node) + " Partition: " + to_string(partition), Log::debug);
             output_files[partition] << start_node << "\t" << end_node << "\n";
+            // std::cerr << "Intercluster edges written, count=" << count << std::endl;
+            count ++;
         }
         else {
             // inter cluster edges and edges with nodes with partial cluster info
-            this -> WriteToLogFile("Edge to write: " + to_string(start_node) + "\t" + to_string(end_node) + " Partition: " + to_string(this -> num_partitions), Log::debug);
+            // this -> WriteToLogFile("Edge to write: " + to_string(start_node) + "\t" + to_string(end_node) + " Partition: " + to_string(this -> num_partitions), Log::debug);
 
-            output_files[this->num_partitions] << start_node << "\t" << end_node << "\n";
+            // output_files[this->num_partitions] << start_node << "\t" << end_node << "\n";
         }
     }
-    this -> WriteToLogFile("Finished writing to output streams", Log::info);
+    std::cerr << "Outside reading input loop" << std::endl;
 
+    this -> WriteToLogFile("Finished writing to output streams", Log::info);
+    
     // for (int i = 0; i < this -> num_partitions; i++) {
     //     output_files[i].close();
     // }
+    std::cerr << "after partition deallocations" << std::endl;
+    std::cerr.flush();
+    return 0;
 }
 
 int SplitGraph::WriteToLogFile(std::string message, Log message_type) {
