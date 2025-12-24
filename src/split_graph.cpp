@@ -51,7 +51,7 @@ int SplitGraph::main() {
             long to_node = VECTOR(new_id_to_old_id_vector_map)[IGRAPH_TO(&induced_subgraph, current_edge)];
             output_files[partition] << from_node << " " << to_node << "\n";
         }
-        output_files[partition] << "\n";
+        output_files[partition] << "-\n";
     }
     return 1;
 }
