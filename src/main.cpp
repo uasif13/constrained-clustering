@@ -2,8 +2,8 @@
 #include "argparse.h"
 #include "constrained.h"
 #include "library.h"
-#include "mincut_only.h"
-#include "cm.h"
+// #include "mincut_only.h"
+// #include "cm.h"
 #include "split_graph.h"
 
 
@@ -92,6 +92,10 @@ int main(int argc, char* argv[]) {
         .required()
         .help("Number of partitions to split graph")
         .scan<'d',int>();
+    split_graph.add_argument("--num-processors")
+        .default_value(int(1))
+        .help("Number of processors")
+        .scan<'d', int>();
     split_graph.add_argument("--output-header")
         .required()
         .help("Output Header");
@@ -172,9 +176,10 @@ int main(int argc, char* argv[]) {
         std::string output_header = split_graph.get<std::string>("--output-header");
         std::string log_file = split_graph.get<std::string>("--log-file");
         int log_level = split_graph.get<int>("--log-level");
-        SplitGraph* split_graph = new SplitGraph(edgelist, existing_clustering, num_partitions, output_header, log_file, log_level);
+        int num_processors = split_graph.get<int>("--num-processors");
+        SplitGraph* split_graph = new SplitGraph(edgelist, existing_clustering, num_partitions, num_processors, output_header, log_file, log_level);
         split_graph->main();
-        // delete split_graph;
+        delete split_graph;
         std::cerr << "Deallocated split_graph object" << std::endl;
     }
 }

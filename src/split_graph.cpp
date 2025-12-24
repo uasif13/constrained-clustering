@@ -1,62 +1,59 @@
 #include "split_graph.h"
 
 int SplitGraph::main() {
-    std::map<int, int> node_id_to_cluster_id_map;
+    this->WriteToLogFile("Loading the initial graph" , Log::info);
+
+    igraph_set_attribute_table(&igraph_cattribute_table);
+    igraph_t graph;
+    std::unordered_map<long, long> original_to_new_id_unordered_map;
+    MMapGraphLoader::LoadEdgelistMMap(this->edgelist, &graph,&original_to_new_id_unordered_map,false);
+    ConstrainedClustering::SetIgraphAllEdgesWeight(&graph, 1.0);
+    this->WriteToLogFile("Finished loading the initial graph" , Log::info);
+    // /* std::cerr << EAN(&graph, "weight", 0) << std::endl; */
     
-    std::map<int, int> cluster_id_to_new_cluster_id_map;
-    std::ifstream existing_clustering_file(this -> existing_clustering);
-    
-    int node_id = 1;
-    int cluster_id = 1;
-    int cluster_id_new = 0;
-    while (existing_clustering_file >> node_id >> cluster_id) {
-        if (!cluster_id_to_new_cluster_id_map.contains(cluster_id)) {
-            cluster_id_to_new_cluster_id_map[cluster_id] = cluster_id_new;
-            cluster_id_new++;
-        }
-        node_id_to_cluster_id_map[node_id] = cluster_id_to_new_cluster_id_map[cluster_id];
-    }
-    this -> WriteToLogFile("Finished reading Communities cluster_count is: " + to_string(cluster_id_new),Log::info);
-    int cluster_size = (cluster_id_new)/this -> num_partitions;
-    if ((cluster_id_new)%(this -> num_partitions) != 0) {
-        cluster_size ++;
-    }
-    std::ifstream input_graph(this->edgelist);
-    int start_node = 1;
-    int end_node = 1;
+    int graph_vcount = igraph_vcount(&graph);
+    string edge_count;
+    edge_count = "before rice edge_count " + to_string(igraph_ecount(&graph));
+    this -> WriteToLogFile(edge_count, Log::info);
+    std::unordered_map<long, long> node_id_to_cluster_id_unordered_map;
+        // non mpi
+    this->WriteToLogFile("Loading the new id to cluster id map" , Log::debug);
+    MMapGraphLoader::LoadClusteringMMap(this->existing_clustering, &node_id_to_cluster_id_unordered_map, original_to_new_id_unordered_map);
+    this->WriteToLogFile("Finished loading the new id to cluster id map" , Log::debug);    
+    // output_map(original_to_new_id_map_nonmpi);
+    this->WriteToLogFile("Removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_ecount(&graph)) , Log::debug);
+    ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_unordered_map, this-> num_processors);
+
+    // this->WriteToLogFile("Finished removing Inter cluster edges vertices: " + std::to_string(igraph_vcount(&graph)) + " edges: " + std::to_string(igraph_ecount(&graph)) , Log::debug);
+
+    // /** SECTION Get Connected Components START **/
+    std::vector<std::vector<long>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
     std::map<int, std::ofstream> output_files;
     for (int i = 0; i < this -> num_partitions; i++) {
-        output_files[i] = std::ofstream(this -> output_header + "_" + to_string(i) + ".tsv");
+        output_files[i] = std::ofstream(this -> output_header + "_" + to_string(this->num_partitions) + "_" + to_string(i) + ".tsv");
     }
-    this -> WriteToLogFile("Finished creating output streams", Log::info);
-    int count = 1;
-    string line;
-    while (input_graph >> start_node >> end_node) {
-        if (node_id_to_cluster_id_map.contains(start_node) && node_id_to_cluster_id_map.contains(end_node)
-        && node_id_to_cluster_id_map.at(start_node) == node_id_to_cluster_id_map.at(end_node)) {
-            int partition = node_id_to_cluster_id_map[start_node] % this -> num_partitions;
-            this -> WriteToLogFile("Edge to write: " + to_string(start_node) + "\t" + to_string(end_node) + " Partition: " + to_string(partition), Log::debug);
-            output_files[partition] << start_node << "\t" << end_node << "\n";
-            // std::cerr << "Intercluster edges written, count=" << count << std::endl;
-            count ++;
+    for (int i = 0; i < connected_components_vector.size(); i++) {
+        int partition = i % this -> num_partitions;
+        igraph_vector_int_t nodes_to_keep;
+        igraph_vector_int_t new_id_to_old_id_vector_map;
+        igraph_vector_int_init(&nodes_to_keep, connected_components_vector[i].size());
+        for(size_t j = 0; j < connected_components_vector[i].size(); j ++) {
+            VECTOR(nodes_to_keep)[j] = connected_components_vector[i][j];
         }
-        else {
-            // inter cluster edges and edges with nodes with partial cluster info
-            // this -> WriteToLogFile("Edge to write: " + to_string(start_node) + "\t" + to_string(end_node) + " Partition: " + to_string(this -> num_partitions), Log::debug);
-
-            // output_files[this->num_partitions] << start_node << "\t" << end_node << "\n";
+        igraph_t induced_subgraph;
+        igraph_vector_int_init(&new_id_to_old_id_vector_map, igraph_vector_int_size(&nodes_to_keep));
+        igraph_induced_subgraph_map(&graph, &induced_subgraph, igraph_vss_vector(&nodes_to_keep), IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH, NULL, &new_id_to_old_id_vector_map);
+        igraph_eit_t eit;
+        igraph_eit_create(&induced_subgraph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
+        for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
+            igraph_integer_t current_edge = IGRAPH_EIT_GET(eit);
+            long from_node = VECTOR(new_id_to_old_id_vector_map)[IGRAPH_FROM(&induced_subgraph, current_edge)];
+            long to_node = VECTOR(new_id_to_old_id_vector_map)[IGRAPH_TO(&induced_subgraph, current_edge)];
+            output_files[partition] << from_node << " " << to_node << "\n";
         }
+        output_files[partition] << "\n";
     }
-    std::cerr << "Outside reading input loop" << std::endl;
-
-    this -> WriteToLogFile("Finished writing to output streams", Log::info);
-    
-    // for (int i = 0; i < this -> num_partitions; i++) {
-    //     output_files[i].close();
-    // }
-    std::cerr << "after partition deallocations" << std::endl;
-    std::cerr.flush();
-    return 0;
+    return 1;
 }
 
 int SplitGraph::WriteToLogFile(std::string message, Log message_type) {
