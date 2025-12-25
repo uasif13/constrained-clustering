@@ -56,6 +56,7 @@ class ConstrainedClustering {
         int WriteToLogFile(std::string message, Log message_type);
         void WritePartitionMap(std::map<long,long>& final_partition);
         void WriteClusterQueue(std::queue<std::vector<long>>& to_be_clustered_clusters, igraph_t* graph);
+        void WriteClusterQueue(std::queue<std::vector<long>>& to_be_clustered_clusters);
         long WriteClusterQueueMPI(std::queue<std::vector<long>>* cluster_queue, igraph_t* graph, long cluster_start, long previous_cluster_id, int iteration, uint64_t* opCount);
             
         static inline std::map<std::string, long> GetOriginalToNewIdMap(igraph_t* graph) {

@@ -20,7 +20,9 @@ public:
         double weight;
     };
     
-    static inline std::vector<std::vector<int>> LoadSubgraphMMap(const std::string &filename)
+    static std::vector<std::vector<long>> LoadEdgelistMMap(const std::string &filename,
+                                std::unordered_map<long,long>* node_id_to_new_node_id_map,
+                                bool has_weights)
     {
         int fd = open(filename.c_str(), O_RDONLY);
         if (fd == -1)
@@ -58,19 +60,19 @@ public:
         // printf("estimated_edge count of edgefile: %ld\n", estimated_edges);
         // std::vector<Edge> edges;
         // edges.reserve(estimated_edges);
-        std::vector<Edge> edges_in_subgraph;
+        std::vector<std::vector<long>> result{};
+        std::vector<long> cc = {};
 
         long next_node_id = 0;
 
         while (ptr < end)
         {
             if (*ptr == '-') {
-                for (size_t i = 0; i < edges.size(); i++)
-                {
-                    VECTOR(edge_vector)[2 * i] = edges[i].from;
-                    VECTOR(edge_vector)[2 * i + 1] = edges[i].to;
-                }
+                result.push_back(cc);
+                cc.erase(cc.begin(), cc.end());
+                ptr++;
             }
+
             while (ptr < end && (*ptr == '\n' || *ptr == '\r'))
                 ptr++;
             if (ptr >= end)
@@ -85,30 +87,27 @@ public:
 
             double weight = 1.0;
 
-            edges_in_subgraph.push_back({from, to, weight});
+            if (node_id_to_new_node_id_map->find(from) == node_id_to_new_node_id_map->end())
+            {
+                node_id_to_new_node_id_map->insert({from, next_node_id++});
+            }
+            if (node_id_to_new_node_id_map->find(to) == node_id_to_new_node_id_map->end())
+            {
+                node_id_to_new_node_id_map->insert({to, next_node_id++});
+            }
+
+            // edges.push_back({node_id_to_new_node_id_map->at(from), node_id_to_new_node_id_map->at(to), weight});
+            // cc.push_back(node_id_to_new_node_id_map->at(from));
+            // cc.push_back(node_id_to_new_node_id_map->at(to));
+            cc.push_back(from);
+            cc.push_back(to);
 
             SkipToNextLine(ptr, end);
         }
 
-        igraph_vector_int_t edge_vector;
-        igraph_vector_int_init(&edge_vector, edges.size() * 2);
-        for (size_t i = 0; i < edges.size(); i++)
-        {
-            VECTOR(edge_vector)[2 * i] = edges[i].from;
-            VECTOR(edge_vector)[2 * i + 1] = edges[i].to;
-        }
-
-        igraph_empty(graph, next_node_id, IGRAPH_UNDIRECTED);
-        igraph_add_edges(graph, &edge_vector, NULL);
-        igraph_vector_int_destroy(&edge_vector);
-
-        for (const auto& pair: *node_id_to_new_node_id_map) {
-            SETVAS(graph, "name", pair.second, std::to_string(pair.first).c_str());
-        }
-
         munmap(mapped, file_size);
         close(fd);
-        return 0;
+        return result;
     }
 
     static int LoadClusteringMMap(const std::string &filename,

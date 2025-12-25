@@ -1,4 +1,4 @@
-#include "mmap_graph_loader.h"
+#include "mmap_subgraph_loader.h"
 #include <iostream>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <vector>
 
-size_t MMapGraphLoader::EstimateEdgeCount(const char *data, size_t size)
+size_t MMapSubgraphLoader::EstimateEdgeCount(const char *data, size_t size)
 {
     size_t line_count = 0;
     const char *ptr = data;
