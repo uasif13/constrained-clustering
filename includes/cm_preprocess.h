@@ -59,15 +59,15 @@ class CMPreprocess : public ConstrainedClustering {
             igraph_induced_subgraph_map(graph, &induced_subgraph, igraph_vss_vector(&nodes_to_keep), IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH, NULL, &new_id_to_old_id_map);
             printf("runclusteronpartition created subgraph\n");
 
-            igraph_eit_t eit;
-            igraph_eit_create(&induced_subgraph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
-            for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
-                igraph_integer_t current_edge = IGRAPH_EIT_GET(eit);
-                long from = VECTOR(new_id_to_old_id_map)[IGRAPH_FROM(graph, current_edge)];
-                long to = VECTOR(new_id_to_old_id_map)[IGRAPH_TO(graph, current_edge)];
-                cout << prev_new_id_to_old_id_map[from] << " " << prev_new_id_to_old_id_map[to];
-            }
-            cout << endl;
+            // igraph_eit_t eit;
+            // igraph_eit_create(&induced_subgraph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
+            // for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
+            //     igraph_integer_t current_edge = IGRAPH_EIT_GET(eit);
+            //     long from = VECTOR(new_id_to_old_id_map)[IGRAPH_FROM(graph, current_edge)];
+            //     long to = VECTOR(new_id_to_old_id_map)[IGRAPH_TO(graph, current_edge)];
+            //     cout << prev_new_id_to_old_id_map[from] << " " << prev_new_id_to_old_id_map[to];
+            // }
+            // cout << endl;
             
             std::map<long, long> partition_map = ConstrainedClustering::GetCommunities("", algorithm, seed, clustering_parameter, &induced_subgraph);
             printf("runclusteronpartition partition map\n");
@@ -90,19 +90,22 @@ class CMPreprocess : public ConstrainedClustering {
 
                 igraph_vector_int_t sub_nodes_to_keep;
                 igraph_vector_int_t sub_new_id_to_old_id_vector_map;
+                // std::unordered_map<long, long> sub_old_id_to_new_id_map;
+                // std::unordered_map<long, long> sub_new_id_to_old_id_map;
                 igraph_vector_int_init(&sub_nodes_to_keep, connected_components_vector[i].size());
                 for(size_t j = 0; j < connected_components_vector[i].size(); j ++) {
-                    VECTOR(sub_nodes_to_keep)[j] = prev_new_id_to_old_id_map[VECTOR(new_id_to_old_id_map)[connected_components_vector[i][j]]];
+                    VECTOR(sub_nodes_to_keep)[j] = connected_components_vector[i][j];
                 }
                 igraph_t sub_subgraph;
                 igraph_vector_int_init(&sub_new_id_to_old_id_vector_map, igraph_vector_int_size(&sub_nodes_to_keep));
-                igraph_induced_subgraph_map(graph, &sub_subgraph, igraph_vss_vector(&sub_nodes_to_keep), IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH, NULL, &sub_new_id_to_old_id_vector_map);
+                igraph_induced_subgraph_map(&induced_subgraph, &sub_subgraph, igraph_vss_vector(&sub_nodes_to_keep), IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH, NULL, &sub_new_id_to_old_id_vector_map);
                 igraph_eit_t eit;
                 igraph_eit_create(&sub_subgraph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
                 for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
                     igraph_integer_t current_edge = IGRAPH_EIT_GET(eit);
-                    long from_node = prev_new_id_to_old_id_map[VECTOR(sub_new_id_to_old_id_vector_map)[IGRAPH_FROM(&sub_subgraph, current_edge)]];
-                    long to_node = prev_new_id_to_old_id_map[VECTOR(sub_new_id_to_old_id_vector_map)[IGRAPH_TO(&sub_subgraph, current_edge)]];
+                    long from_node = prev_new_id_to_old_id_map[VECTOR(new_id_to_old_id_map)[VECTOR(sub_new_id_to_old_id_vector_map)[IGRAPH_FROM(&sub_subgraph, current_edge)]]];
+                    long to_node = prev_new_id_to_old_id_map[VECTOR(new_id_to_old_id_map)[VECTOR(sub_new_id_to_old_id_vector_map)[IGRAPH_TO(&sub_subgraph, current_edge)]]];
+                    cout << from_node << " " << to_node << " ";
                     // if (current_cluster_set.find(from_node) != current_cluster_set.end() && current_cluster_set.find(to_node) != current_cluster_set.end()) {
                     translated_cluster_vector.push_back(from_node);   
                     translated_cluster_vector.push_back(to_node);  
@@ -149,7 +152,8 @@ class CMPreprocess : public ConstrainedClustering {
             }
             // std::cout << endl;
             igraph_t subgraph;
-            igraph_create(&subgraph, &edges, 0, false);            
+            igraph_empty(&subgraph, next_node_id, IGRAPH_UNDIRECTED);
+            igraph_add_edges(&subgraph, &edges, NULL);          
             std::vector<long> in_partition;
             std::vector<long> out_partition;
             bool is_well_connected = false;
@@ -220,13 +224,25 @@ class CMPreprocess : public ConstrainedClustering {
 
                 if(is_well_connected) {
                     /* std::cerr << "cluster size " << std::to_string(current_cluster.size()) <<  " well connected after performing " << std::to_string(num_nodes_removed) << " trivial mincuts " << std::endl; */
-                    std::vector<long> translated_current_cluster = std::vector<long>(current_cluster_set.begin(), current_cluster_set.end());
-                    for (int i = 0; i < translated_current_cluster.size(); i++) {
-                        translated_current_cluster[i] = new_id_to_old_id_map[translated_current_cluster[i]];
+                    // std::vector<long> translated_current_cluster = std::vector<long>(current_cluster_set.begin(), current_cluster_set.end());
+                    // for (int i = 0; i < translated_current_cluster.size(); i++) {
+                    //     translated_current_cluster[i] = new_id_to_old_id_map[translated_current_cluster[i]];
+                    // }
+                    // {
+                    //     std::lock_guard<std::mutex> done_being_clustered_guard(CMPreprocess::done_being_clustered_mutex);
+                    //     CMPreprocess::done_being_clustered_clusters.push(translated_current_cluster);
+                    // }
+                    std::vector<long> current_cluster;
+                    igraph_vit_t vit;
+                    igraph_vit_create(&subgraph, igraph_vss_all(), &vit);
+                    for (int i = 0; i < igraph_vcount(&subgraph); i++) {
+                        current_cluster.push_back(new_id_to_old_id_map[i]);
                     }
+                    printf("after trivial current_cluster_size %d \n", current_cluster.size());
+
                     {
                         std::lock_guard<std::mutex> done_being_clustered_guard(CMPreprocess::done_being_clustered_mutex);
-                        CMPreprocess::done_being_clustered_clusters.push(translated_current_cluster);
+                        CMPreprocess::done_being_clustered_clusters.push(current_cluster);
                     }
                 } 
                 else if(is_non_trivial_cut) {
@@ -235,7 +251,7 @@ class CMPreprocess : public ConstrainedClustering {
                     /* std::cerr << "cluster mincut into " << std::to_string(in_partition.size()) << ":" << std::to_string(out_partition.size()) << " after performing " << std::to_string(num_nodes_removed) << " trivial mincuts " << std::endl; */
                     if(in_partition.size() > 1) {
                         std::vector<std::vector<long>> in_clusters = CMPreprocess::RunClusterOnPartition(&subgraph, new_id_to_old_id_map, algorithm, seed, clustering_parameter, in_partition);
-                        output_vec_long(in_clusters, &subgraph);
+                        // output_vec_long(in_clusters, &subgraph);
                         for(size_t i = 0; i < in_clusters.size(); i ++) {
                             // std::vector<long> translated_in_clusters;
                             // for(size_t j = 0; j < in_clusters[i].size(); j ++) {

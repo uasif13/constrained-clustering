@@ -475,7 +475,6 @@ class ConstrainedClustering {
             printf("getconnectedcomponents vertex count %d edge count %d\n", igraph_vcount(graph_ptr), igraph_ecount(graph_ptr));
 
             igraph_connected_components(graph_ptr, &component_id_vector, &membership_size_vector, &number_of_components, IGRAPH_WEAK);
-            printf("getconnectedcomponents connected_components function");
             for(long node_id = 0; node_id < igraph_vcount(graph_ptr); node_id ++) {
                 long current_component_id = VECTOR(component_id_vector)[node_id];
                 if(VECTOR(membership_size_vector)[current_component_id] > 1) {
