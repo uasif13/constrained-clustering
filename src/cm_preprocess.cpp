@@ -26,9 +26,6 @@ int CMPreprocess::main() {
 
     this -> WriteToLogFile("Finished reading subgraph edgelist file", Log::info);
 
-    output(subgraph_edges_vector);
-    output(original_to_new_id_unordered_map);
-
     // store the results into the queue that each thread pulls from
     
     /** SECTION Get Connected Components END **/

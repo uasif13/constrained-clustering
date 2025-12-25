@@ -47,9 +47,6 @@ int main(int argc, char* argv[]) {
         .default_value(int(1))
         .help("Number of processors")
         .scan<'d', int>();
-    cm.add_argument("--output-header")
-        .required()
-        .help("Output Headers for Distributed Graphs"); 
     cm.add_argument("--output-file")
         .required()
         .help("Output clustering file");
@@ -143,7 +140,7 @@ int main(int argc, char* argv[]) {
         .scan<'d', int>();
 
     
-    // main_program.add_subparser(cm);
+    main_program.add_subparser(cm);
     // main_program.add_subparser(mincut_only);
     main_program.add_subparser(split_graph);
     main_program.add_subparser(cm_preprocess);
@@ -229,6 +226,25 @@ int main(int argc, char* argv[]) {
         random_functions::setSeed(0);
         cm_preprocess->main();
         delete cm_preprocess;
+    }
+    else if(main_program.is_subcommand_used(cm)) {
+        std::string edgelist = cm.get<std::string>("--edgelist");
+        std::string algorithm = cm.get<std::string>("--algorithm");
+        double resolution = cm.get<double>("--resolution");
+        std::string existing_clustering = cm.get<std::string>("--existing-clustering");
+        int num_processors = cm.get<int>("--num-processors");
+        std::string output_file = cm.get<std::string>("--output-file");
+        std::string log_file = cm.get<std::string>("--log-file");
+        int log_level = cm.get<int>("--log-level") - 1; // so that enum is cleaner
+        // printf("my_rank: %d create cm object\n", my_rank);
+        // SplitGraph* split_graph = new SplitGraph(edgelist, existing_clustering, nprocs, output_header, log_file, log_level);
+        // split_graph -> main();
+        // delete split_graph;
+        ConstrainedClustering* cm = new CM(edgelist, algorithm, resolution, existing_clustering, num_processors, output_file, log_file, log_level);
+        random_functions::setSeed(0);
+        // printf("my_rank: %d call main\n", my_rank);
+        cm->main();
+        delete cm;
     }
     // MPI_Finalize(my_rank,nprocs, opCount, mpi_log_file);
 }

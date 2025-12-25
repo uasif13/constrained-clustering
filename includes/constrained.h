@@ -417,6 +417,7 @@ class ConstrainedClustering {
             } else {
                 graph = *graph_ptr;
             }
+            printf("getcommunities set graph ptr\n");
 
             if(algorithm == "louvain") {
                 ConstrainedClustering::RunLouvainAndUpdatePartition(partition_map, seed, &graph);
@@ -424,14 +425,23 @@ class ConstrainedClustering {
                 std::vector<double> edge_weights;
                 igraph_eit_t eit;
                 igraph_eit_create(&graph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
+                printf("getcommunities created edge iterator\n");
+
                 for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
-                    double current_edge_weight = EAN(&graph, "weight", IGRAPH_EIT_GET(eit));
+                    // double current_edge_weight = EAN(&graph, "weight", IGRAPH_EIT_GET(eit));
+                    double current_edge_weight = 1.0;
                     edge_weights.push_back(current_edge_weight);
                 }
                 igraph_eit_destroy(&eit);
+                printf("getcommunities leiden edges\n");
+
                 Graph* leiden_graph = Graph::GraphFromEdgeWeights(&graph, edge_weights);
                 CPMVertexPartition partition(leiden_graph, clustering_parameter);
+                printf("getcommunities partition\n");
+
                 ConstrainedClustering::RunLeidenAndUpdatePartition(partition_map, &partition, seed, &graph);
+                printf("getcommunities run leiden\n");
+
             } else if(algorithm == "leiden-mod") {
                 std::vector<double> edge_weights;
                 igraph_eit_t eit;
@@ -462,7 +472,10 @@ class ConstrainedClustering {
             igraph_vector_int_t membership_size_vector;
             igraph_vector_int_init(&membership_size_vector, 0);
             igraph_integer_t number_of_components;
+            printf("getconnectedcomponents vertex count %d edge count %d\n", igraph_vcount(graph_ptr), igraph_ecount(graph_ptr));
+
             igraph_connected_components(graph_ptr, &component_id_vector, &membership_size_vector, &number_of_components, IGRAPH_WEAK);
+            printf("getconnectedcomponents connected_components function");
             for(long node_id = 0; node_id < igraph_vcount(graph_ptr); node_id ++) {
                 long current_component_id = VECTOR(component_id_vector)[node_id];
                 if(VECTOR(membership_size_vector)[current_component_id] > 1) {
@@ -477,7 +490,7 @@ class ConstrainedClustering {
             return connected_components_vector;
         }
 
-        std::vector<std::vector<long>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, const std::unordered_map<long,long>& node_id_to_cluster_id_map, int my_rank, int nprocs) {
+        static inline std::vector<std::vector<long>> GetConnectedComponentsDistributed(igraph_t* graph_ptr, const std::unordered_map<long,long>& node_id_to_cluster_id_map, int my_rank, int nprocs) {
             std::vector<std::vector<long>> connected_components_vector;
             std::unordered_map<long, std::vector<long>> component_id_to_member_vector_map;
             igraph_vector_int_t component_id_vector;

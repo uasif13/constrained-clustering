@@ -1,5 +1,7 @@
 #include "split_graph.h"
 
+
+
 int SplitGraph::main() {
     this->WriteToLogFile("Loading the initial graph" , Log::info);
 
@@ -28,6 +30,7 @@ int SplitGraph::main() {
 
     // /** SECTION Get Connected Components START **/
     std::vector<std::vector<long>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
+    // output_vec_long(connected_components_vector, &graph);
     std::map<int, std::ofstream> output_files;
     for (int i = 0; i < this -> num_partitions; i++) {
         output_files[i] = std::ofstream(this -> output_header + "_" + to_string(this->num_partitions) + "_" + to_string(i) + ".tsv");
@@ -49,7 +52,7 @@ int SplitGraph::main() {
             igraph_integer_t current_edge = IGRAPH_EIT_GET(eit);
             long from_node = VECTOR(new_id_to_old_id_vector_map)[IGRAPH_FROM(&induced_subgraph, current_edge)];
             long to_node = VECTOR(new_id_to_old_id_vector_map)[IGRAPH_TO(&induced_subgraph, current_edge)];
-            output_files[partition] << from_node << " " << to_node << "\n";
+            output_files[partition] << VAS(&graph, "name", from_node) << " " << VAS(&graph, "name", to_node) << "\n";
         }
         output_files[partition] << "-\n";
     }
