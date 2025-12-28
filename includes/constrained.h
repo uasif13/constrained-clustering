@@ -56,6 +56,7 @@ class ConstrainedClustering {
         int WriteToLogFile(std::string message, Log message_type, int my_rank = -1);
         void WritePartitionMap(std::map<long,long>& final_partition);
         void WriteClusterQueue(std::queue<std::vector<long>>& to_be_clustered_clusters, igraph_t* graph);
+        long WriteClusterQueueMPI(std::queue<std::vector<long>>* cluster_queue, long cluster_start, long previous_cluster_id, int iteration, uint64_t* opCount);
         long WriteClusterQueueMPI(std::queue<std::vector<long>>* cluster_queue, igraph_t* graph, long cluster_start, long previous_cluster_id, int iteration, uint64_t* opCount);
 
         int initializeSlice(igraph_t * graph){
@@ -449,7 +450,7 @@ class ConstrainedClustering {
                 igraph_eit_t eit;
                 igraph_eit_create(&graph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
                 for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
-                    double current_edge_weight = EAN(&graph, "weight", IGRAPH_EIT_GET(eit));
+                    double current_edge_weight = 1.0;
                     edge_weights.push_back(current_edge_weight);
                 }
                 igraph_eit_destroy(&eit);

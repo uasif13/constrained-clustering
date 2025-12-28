@@ -63,23 +63,22 @@ int CMPreprocess::main(int my_rank, int nprocs, uint64_t* opCount) {
     /* std::random_device rd; */
     /* std::mt19937 rng{rd()}; */
     /* std::uniform_int_distribution<int> uni(0, 100000); */
-    this -> WriteToLogFile("Read subgraph edgelist file", Log::info);
+    this -> WriteToLogFile("Read subgraph edgelist file", Log::info, my_rank);
     std::unordered_map<long, long> original_to_new_id_unordered_map;
     /** SECTION Get Connected Components START **/
     std::vector<std::vector<long>> subgraph_edges_vector = MMapSubgraphLoader::LoadEdgelistMMap(this->edgelist, &original_to_new_id_unordered_map,false);
 
-    this -> WriteToLogFile("Finished reading subgraph edgelist file", Log::info);
+    this -> WriteToLogFile("Finished reading subgraph edgelist file", Log::info, my_rank);
 
     // store the results into the queue that each thread pulls from
     
     /** SECTION Get Connected Components END **/
-    int previous_done_being_clustered_size = 0;
     
     int current_components_vector_index = 0;
     int cc_count = subgraph_edges_vector.size();
 
     /** SECTION MinCutOnceAndCluster Each Connected Component START **/
-    this->WriteToLogFile(std::to_string(cc_count) + " [connected components / clusters] to be mincut", Log::debug);
+    this->WriteToLogFile(std::to_string(cc_count) + " [connected components / clusters] to be mincut", Log::debug, my_rank);
     // store the results into the queue that each thread pulls from
     
     int cc_start = 0;
@@ -100,8 +99,11 @@ int CMPreprocess::main(int my_rank, int nprocs, uint64_t* opCount) {
     // }
     // igraph_induced_subgraph_map(graph, &subgraph, igraph_vss_vector(&nodes_to_keep), IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH, NULL, &new_id_to_old_id_vector_map);
     for(size_t i = cc_start; i < cc_end; i ++) {
-        CM::to_be_mincut_clusters.push(subgraph_edges_vector[i]);
+        CMPreprocess::to_be_mincut_clusters.push(subgraph_edges_vector[i]);
     }
+    for(int i = 0; i < this->num_processors; i ++) {
+            CMPreprocess::to_be_mincut_clusters.push({-1});
+        }
     /** SECTION Get Connected Components END **/
     int previous_done_being_clustered_size = 0;
     long previous_cluster_id = 0;
@@ -118,12 +120,10 @@ int CMPreprocess::main(int my_rank, int nprocs, uint64_t* opCount) {
         }
 
         /** SECTION MinCutOnceAndCluster Each Connected Component START **/
-        this->WriteToLogFile(std::to_string(CM::to_be_mincut_clusters.size()) + " [connected components / clusters] to be mincut", Log::debug, my_rank);
+        this->WriteToLogFile(std::to_string(CMPreprocess::to_be_mincut_clusters.size()) + " [connected components / clusters] to be mincut", Log::debug, my_rank);
         /* before_mincut_number_of_clusters = CM::to_be_mincut_clusters.size(); */
         /* if a thread gets a cluster {-1}, then they know processing is done and they can stop working */
-        for(int i = 0; i < this->num_processors; i ++) {
-            CM::to_be_mincut_clusters.push({-1});
-        }
+        
         /* start the threads */
         std::vector<std::thread> thread_vector;
         for(int i = 0; i < this->num_processors; i ++) {
@@ -142,10 +142,10 @@ int CMPreprocess::main(int my_rank, int nprocs, uint64_t* opCount) {
         /** SECTION MinCutOnceAndCluster Each Connected Component END **/
 
         /** SECTION Check If All Clusters Are Well-Connected START **/
-        after_mincut_number_of_clusters = CM::to_be_clustered_clusters.size();
+        after_mincut_number_of_clusters = CMPreprocess::to_be_clustered_clusters.size();
         if(after_mincut_number_of_clusters == 0) {
-            this->WriteToLogFile("all clusters are well-connected", Log::info, my_rank);
-            this->WriteToLogFile("Total number of iterations: " + std::to_string(iter_count + 1), Log::info, my_rank);
+            this->WriteToLogFile("my_rank:" + to_string(my_rank) +"all clusters are well-connected", Log::info, my_rank);
+            this->WriteToLogFile("my_rank:" + to_string(my_rank) +"Total number of iterations: " + std::to_string(iter_count + 1), Log::info, my_rank);
             mincut_continue[my_rank] = 0;
         }
         else {
@@ -153,22 +153,22 @@ int CMPreprocess::main(int my_rank, int nprocs, uint64_t* opCount) {
         }
         /** SECTION Check If All Clusters Are Well-Connected END **/
 
-        while(!CM::to_be_clustered_clusters.empty()) {
-            CM::to_be_mincut_clusters.push(CM::to_be_clustered_clusters.front());
-            CM::to_be_clustered_clusters.pop();
+        while(!CMPreprocess::to_be_clustered_clusters.empty()) {
+            CMPreprocess::to_be_mincut_clusters.push(CMPreprocess::to_be_clustered_clusters.front());
+            CMPreprocess::to_be_clustered_clusters.pop();
         }
-        int mincut_continue_mr = !CM::to_be_mincut_clusters.empty();
+        printf("my_rank: %d to_be_mincut_cluster_size: %d\n", my_rank, CMPreprocess::to_be_mincut_clusters.size());
+        int mincut_continue_mr = !CMPreprocess::to_be_mincut_clusters.empty();
         MPI_Allgather(&mincut_continue_mr, 1, MPI_INT, mincut_continue, 1, MPI_INT, MPI_COMM_WORLD);
         iter_count ++;
     }
 
     this->WriteToLogFile("my_rank: " + to_string(my_rank) + " Writing output to: " + this->output_file, Log::info, my_rank);
-    previous_cluster_id = this->WriteClusterQueueMPI(&CM::done_being_clustered_clusters, &graph, cc_start, previous_cluster_id, iter_count, opCount);
+    previous_cluster_id = this->WriteClusterQueueMPI(&CMPreprocess::done_being_clustered_clusters, cc_start, previous_cluster_id, iter_count, opCount);
         
 
 
     //this->WriteToLogFile("Writing output to: " + this->output_file, Log::info, my_rank);
     //this->WriteClusterQueue(CM::done_being_clustered_clusters, &graph, cc_start);
-    igraph_destroy(&graph);
     return 0;
 }

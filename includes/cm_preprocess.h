@@ -6,7 +6,7 @@
 
 class CMPreprocess : public ConstrainedClustering {
     public:
-        CMPreprocess(std::string edgelist, std::string algorithm, double clustering_parameter, int num_processors, std::string output_file, std::string log_file, int log_level) : ConstrainedClustering(edgelist, algorithm, clustering_parameter, "", num_processors, output_file, log_file, log_level) {
+        CMPreprocess(std::string subgraph_file, std::string algorithm, double clustering_parameter, int num_processors, std::string output_file, std::string log_file, int log_level, int my_rank, int nprocs) : ConstrainedClustering(subgraph_file, algorithm, clustering_parameter, "", num_processors, output_file, log_file, log_level, my_rank, nprocs) {
         };
         int main(int my_rank, int nprocs, uint64_t* opCount);
 
@@ -121,8 +121,19 @@ class CMPreprocess : public ConstrainedClustering {
             return cluster_vectors;
         }
 
-        static inline void MinCutOrClusterWorker(vector<long> current_cluster_edges, std::string algorithm, int seed, double clustering_parameter) {
-            
+        static inline void MinCutOrClusterWorker(std::string algorithm, int seed, double clustering_parameter) {
+
+            std::unique_lock<std::mutex> to_be_mincut_lock{to_be_mincut_mutex};
+            if (CMPreprocess::to_be_mincut_clusters.empty()) return;
+            std::vector<long> current_cluster_edges = CMPreprocess::to_be_mincut_clusters.front();
+            CMPreprocess::to_be_mincut_clusters.pop();
+            to_be_mincut_lock.unlock();
+            printf("inside Mincutorcluster worker to_be_mincut_cluster_size: %d\n", CMPreprocess::to_be_mincut_clusters.size() );
+
+            if(current_cluster_edges.size() == 1 && current_cluster_edges[0] == -1) {
+                // done with work!
+                return;
+            }            
             std::unordered_map<long, long> new_id_to_old_id_map;
             std::unordered_map<long, long> newnew_id_to_old_id_map;
             std::unordered_map<long, long> old_id_to_new_id_map;
@@ -254,7 +265,7 @@ class CMPreprocess : public ConstrainedClustering {
                         for(size_t i = 0; i < in_clusters.size(); i ++) {
                             {
                                 std::lock_guard<std::mutex> to_be_clustered_guard(CMPreprocess::to_be_clustered_mutex);
-                                CMPreprocess::to_be_clustered_clusters.push(in_clusters[i]);
+                                CMPreprocess::to_be_mincut_clusters.push(in_clusters[i]);
                             }
                         }
                     }
@@ -263,7 +274,7 @@ class CMPreprocess : public ConstrainedClustering {
                         for(size_t i = 0; i < out_clusters.size(); i ++) {
                             {
                                 std::lock_guard<std::mutex> to_be_clustered_guard(CMPreprocess::to_be_clustered_mutex);
-                                CMPreprocess::to_be_clustered_clusters.push(out_clusters[i]);
+                                CMPreprocess::to_be_mincut_clusters.push(out_clusters[i]);
                             }
                         }
                     }

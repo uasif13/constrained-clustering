@@ -48,6 +48,8 @@ else()
         ${CMAKE_SOURCE_DIR}/src/mpi_telemetry.cpp
         ${CMAKE_SOURCE_DIR}/src/mmap_graph_loader.cpp
         ${CMAKE_SOURCE_DIR}/external_libs/VieCut/extlib/tlx/tlx/logger.cpp
+        ${CMAKE_SOURCE_DIR}/src/mmap_subgraph_loader.cpp
+        ${CMAKE_SOURCE_DIR}/src/cm_preprocess.cpp
     )
     #[[ CONSTANTS END ]]
 
