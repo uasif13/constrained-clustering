@@ -1,6 +1,10 @@
 #include "split_graph.h"
 
-
+struct greater1{
+    bool operator()(const vector<long> a, const vector<long> b) const{
+        return a[0]>b[0];
+    }
+};
 
 int SplitGraph::main() {
     this->WriteToLogFile("Loading the initial graph" , Log::info);
@@ -32,11 +36,17 @@ int SplitGraph::main() {
     std::vector<std::vector<long>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
     // output_vec_long(connected_components_vector, &graph);
     std::map<int, std::ofstream> output_files;
+    vector<vector<long>> heap_vec;
     for (int i = 0; i < this -> num_partitions; i++) {
         output_files[i] = std::ofstream(this -> output_header + "_" + to_string(this->num_partitions) + "_" + to_string(i) + ".tsv");
+        heap_vec.push_back({0,i});
     }
+    make_heap(heap_vec.begin(), heap_vec.end(), greater1());
     for (int i = 0; i < connected_components_vector.size(); i++) {
-        int partition = i % this -> num_partitions;
+        std::pop_heap(heap_vec.begin(), heap_vec.end(), greater1());
+        auto top = heap_vec.back();
+        long partition = top[1];
+        long num_edges = top[0];
         igraph_vector_int_t nodes_to_keep;
         igraph_vector_int_t new_id_to_old_id_vector_map;
         igraph_vector_int_init(&nodes_to_keep, connected_components_vector[i].size());
@@ -53,8 +63,12 @@ int SplitGraph::main() {
             long from_node = VECTOR(new_id_to_old_id_vector_map)[IGRAPH_FROM(&induced_subgraph, current_edge)];
             long to_node = VECTOR(new_id_to_old_id_vector_map)[IGRAPH_TO(&induced_subgraph, current_edge)];
             output_files[partition] << VAS(&graph, "name", from_node) << " " << VAS(&graph, "name", to_node) << "\n";
+            num_edges++;
         }
         output_files[partition] << "-\n";
+        heap_vec.pop_back();
+        heap_vec.push_back({num_edges, partition});
+        std::push_heap(heap_vec.begin(), heap_vec.end(), greater1());
     }
     return 1;
 }
