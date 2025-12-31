@@ -121,8 +121,8 @@ class CMPreprocess : public ConstrainedClustering {
         }
 
         static inline void MinCutOrClusterWorker(std::string algorithm, int seed, double clustering_parameter) {
-            if (CMPreprocess::to_be_mincut_clusters.empty()) return;
             std::unique_lock<std::mutex> to_be_mincut_lock{to_be_mincut_mutex};
+            if (CMPreprocess::to_be_mincut_clusters.empty()) return;
             std::vector<long> current_cluster_edges = CMPreprocess::to_be_mincut_clusters.front();
             CMPreprocess::to_be_mincut_clusters.pop();
             to_be_mincut_lock.unlock();
