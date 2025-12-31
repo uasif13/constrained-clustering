@@ -29,12 +29,19 @@ int CM::main() {
         ConstrainedClustering::RemoveInterClusterEdges(&graph, node_id_to_cluster_id_map);
     } else if(this->existing_clustering != "") {
         std::map<std::string, int> original_to_new_id_map = ConstrainedClustering::GetOriginalToNewIdMap(&graph);
+	this->WriteToLogFile("Reading clustering file" , Log::info);
         std::map<int, int> new_node_id_to_cluster_id_map = ConstrainedClustering::ReadCommunities(original_to_new_id_map, this->existing_clustering);
+	this->WriteToLogFile("Finished reading clustering file" , Log::info);
+	    this->WriteToLogFile("Removing Inter cluster edges" , Log::info);
         ConstrainedClustering::RemoveInterClusterEdges(&graph, new_node_id_to_cluster_id_map);
+        this->WriteToLogFile("Finished removing inter cluster edges" , Log::info);
     }
 
+
     /** SECTION Get Connected Components START **/
+    this->WriteToLogFile("Getting connected components vector" , Log::info);
     std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
+    this->WriteToLogFile("Finished getting the connected components vector" , Log::info);
     // store the results into the queue that each thread pulls from
     for(size_t i = 0; i < connected_components_vector.size(); i ++) {
         CM::to_be_mincut_clusters.push(connected_components_vector[i]);

@@ -8,9 +8,9 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
     while(!cluster_queue.empty()) {
         std::vector<int> current_cluster = cluster_queue.front();
         cluster_queue.pop();
-        this->WriteToLogFile("new cluster", Log::debug);
+        //this->WriteToLogFile("new cluster", Log::debug);
         for(size_t i = 0; i < current_cluster.size(); i ++) {
-            this->WriteToLogFile(std::to_string(current_cluster[i]), Log::debug);
+	  //            this->WriteToLogFile(std::to_string(current_cluster[i]), Log::debug);
             clustering_output << VAS(graph, "name", current_cluster[i]) << "," << current_cluster_id << '\n';
         }
         current_cluster_id ++;
