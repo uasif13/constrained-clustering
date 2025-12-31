@@ -3,8 +3,9 @@
 #include "argparse.h"
 #include "constrained.h"
 #include "library.h"
-#include "mincut_only.h"
-#include "cm.h"
+// #include "mincut_only.h"
+// #include "cm.h"
+#include "cm_preprocess.h"
 
 
 int main(int argc, char* argv[]) {
@@ -14,7 +15,10 @@ int main(int argc, char* argv[]) {
     cm.add_description("CM");
 
     argparse::ArgumentParser mincut_only("MincutOnly");
-    mincut_only.add_description("CM");
+    mincut_only.add_description("Mincut");
+
+    argparse::ArgumentParser cm_preprocess("CMPreprocess");
+    cm_preprocess.add_description("CM with Preprocess Step");
 
     cm.add_argument("--edgelist")
         .required()
@@ -75,8 +79,40 @@ int main(int argc, char* argv[]) {
         .help("Log level where 0 = silent, 1 = info, 2 = verbose")
         .scan<'d', int>();
 
+    cm_preprocess.add_argument("--edgelist")
+        .required()
+        .help("Subgraph edge-list file");
+    cm_preprocess.add_argument("--algorithm")
+        .help("Clustering algorithm to be used (leiden-cpm, leiden-mod, louvain)")
+        .action([](const std::string& value) {
+            static const std::vector<std::string> choices = {"leiden-cpm", "leiden-mod", "louvain"};
+            if (std::find(choices.begin(), choices.end(), value) != choices.end()) {
+                return value;
+            }
+            throw std::invalid_argument("--algorithm can only take in leiden-cpm, leiden-mod, or louvain.");
+        });
+    cm_preprocess.add_argument("--resolution")
+        .default_value(double(0.01))
+        .help("Resolution value for leiden-cpm. Only used if --algorithm is leiden-cpm")
+        .scan<'f', double>();
+    cm_preprocess.add_argument("--num-processors")
+        .default_value(int(1))
+        .help("Number of processors")
+        .scan<'d', int>();
+    cm_preprocess.add_argument("--output-file")
+        .required()
+        .help("Output clustering file");
+    cm_preprocess.add_argument("--log-file")
+        .required()
+        .help("Output log file");
+    cm_preprocess.add_argument("--log-level")
+        .default_value(int(1))
+        .help("Log level where 0 = silent, 1 = info, 2 = verbose")
+        .scan<'d', int>();
+
     main_program.add_subparser(cm);
     main_program.add_subparser(mincut_only);
+    main_program.add_subparser(cm_preprocess);
     try {
         main_program.parse_args(argc, argv);
     } catch (const std::runtime_error& err) {
@@ -85,30 +121,43 @@ int main(int argc, char* argv[]) {
         std::exit(1);
     }
 
-    if(main_program.is_subcommand_used(cm)) {
-        std::string edgelist = cm.get<std::string>("--edgelist");
-        std::string algorithm = cm.get<std::string>("--algorithm");
-        double resolution = cm.get<double>("--resolution");
-        std::string existing_clustering = cm.get<std::string>("--existing-clustering");
-        int num_processors = cm.get<int>("--num-processors");
-        std::string output_file = cm.get<std::string>("--output-file");
-        std::string log_file = cm.get<std::string>("--log-file");
-        int log_level = cm.get<int>("--log-level") - 1; // so that enum is cleaner
-        ConstrainedClustering* cm = new CM(edgelist, algorithm, resolution, existing_clustering, num_processors, output_file, log_file, log_level);
+    // if(main_program.is_subcommand_used(cm)) {
+    //     std::string edgelist = cm.get<std::string>("--edgelist");
+    //     std::string algorithm = cm.get<std::string>("--algorithm");
+    //     double resolution = cm.get<double>("--resolution");
+    //     std::string existing_clustering = cm.get<std::string>("--existing-clustering");
+    //     int num_processors = cm.get<int>("--num-processors");
+    //     std::string output_file = cm.get<std::string>("--output-file");
+    //     std::string log_file = cm.get<std::string>("--log-file");
+    //     int log_level = cm.get<int>("--log-level") - 1; // so that enum is cleaner
+    //     ConstrainedClustering* cm = new CM(edgelist, algorithm, resolution, existing_clustering, num_processors, output_file, log_file, log_level);
+    //     random_functions::setSeed(0);
+    //     cm->main();
+    //     delete cm;
+    // } else if(main_program.is_subcommand_used(mincut_only)) {
+    //     std::string edgelist = mincut_only.get<std::string>("--edgelist");
+    //     std::string existing_clustering = mincut_only.get<std::string>("--existing-clustering");
+    //     int num_processors = mincut_only.get<int>("--num-processors");
+    //     std::string output_file = mincut_only.get<std::string>("--output-file");
+    //     std::string log_file = mincut_only.get<std::string>("--log-file");
+    //     int log_level = mincut_only.get<int>("--log-level") - 1; // so that enum is cleaner
+    //     ConnectednessCriterion connectedness_criterion = static_cast<ConnectednessCriterion>(mincut_only.get<int>("--connectedness-criterion"));
+    //     ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level);
+    //     random_functions::setSeed(0);
+    //     mincut_only->main();
+    //     delete mincut_only;
+    // } else 
+    if(main_program.is_subcommand_used(cm_preprocess)) {
+        std::string edgelist = cm_preprocess.get<std::string>("--edgelist");
+        std::string algorithm = cm_preprocess.get<std::string>("--algorithm");
+        double resolution = cm_preprocess.get<double>("--resolution");
+        int num_processors = cm_preprocess.get<int>("--num-processors");
+        std::string output_file = cm_preprocess.get<std::string>("--output-file");
+        std::string log_file = cm_preprocess.get<std::string>("--log-file");
+        int log_level = cm_preprocess.get<int>("--log-level") - 1; // so that enum is cleaner
+        ConstrainedClustering* cm_preprocess = new CMPreprocess(edgelist, algorithm, resolution, num_processors, output_file, log_file, log_level);
         random_functions::setSeed(0);
-        cm->main();
-        delete cm;
-    } else if(main_program.is_subcommand_used(mincut_only)) {
-        std::string edgelist = mincut_only.get<std::string>("--edgelist");
-        std::string existing_clustering = mincut_only.get<std::string>("--existing-clustering");
-        int num_processors = mincut_only.get<int>("--num-processors");
-        std::string output_file = mincut_only.get<std::string>("--output-file");
-        std::string log_file = mincut_only.get<std::string>("--log-file");
-        int log_level = mincut_only.get<int>("--log-level") - 1; // so that enum is cleaner
-        ConnectednessCriterion connectedness_criterion = static_cast<ConnectednessCriterion>(mincut_only.get<int>("--connectedness-criterion"));
-        ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level);
-        random_functions::setSeed(0);
-        mincut_only->main();
-        delete mincut_only;
+        cm_preprocess->main();
+        delete cm_preprocess;
     }
 }

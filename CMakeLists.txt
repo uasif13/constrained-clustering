@@ -37,10 +37,12 @@ else()
     set(SOURCE_MAIN ${CMAKE_SOURCE_DIR}/src/main.cpp)
     set(SOURCE_INTERNAL_LIBS
         ${CMAKE_SOURCE_DIR}/src/constrained.cpp
-        ${CMAKE_SOURCE_DIR}/src/cm.cpp
-        ${CMAKE_SOURCE_DIR}/src/mincut_only.cpp
+        #${CMAKE_SOURCE_DIR}/src/cm.cpp
+        #${CMAKE_SOURCE_DIR}/src/mincut_only.cpp
         ${CMAKE_SOURCE_DIR}/src/mincut_custom.cpp
         ${CMAKE_SOURCE_DIR}/external_libs/VieCut/extlib/tlx/tlx/logger.cpp
+        ${CMAKE_SOURCE_DIR}/src/mmap_subgraph_loader.cpp
+        ${CMAKE_SOURCE_DIR}/src/cm_preprocess.cpp
 	${CMAKE_SOURCE_DIR}/src/GraphHelper.cpp
     )
     #[[ CONSTANTS END ]]
