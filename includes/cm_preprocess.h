@@ -121,12 +121,13 @@ class CMPreprocess : public ConstrainedClustering {
         }
 
         static inline void MinCutOrClusterWorker(std::string algorithm, int seed, double clustering_parameter) {
-            std::unique_lock<std::mutex> to_be_mincut_lock{to_be_mincut_mutex};
+	  std::vector<long> current_cluster_edges;
+	    std::unique_lock<std::mutex> to_be_mincut_lock{to_be_mincut_mutex};
             if (CMPreprocess::to_be_mincut_clusters.empty()) return;
-            std::vector<long> current_cluster_edges = CMPreprocess::to_be_mincut_clusters.front();
+            else current_cluster_edges = CMPreprocess::to_be_mincut_clusters.front();
             CMPreprocess::to_be_mincut_clusters.pop();
             to_be_mincut_lock.unlock();
-            // printf("inside Mincutorcluster worker to_be_mincut_cluster_size: %d\n", CMPreprocess::to_be_mincut_clusters.size() );
+            printf("inside Mincutorcluster worker to_be_mincut_cluster_size: %d\n", CMPreprocess::to_be_mincut_clusters.size() );
 
             if(current_cluster_edges.size() == 1 && current_cluster_edges[0] == -1) {
                 // done with work!
