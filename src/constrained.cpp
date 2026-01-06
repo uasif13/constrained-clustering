@@ -130,6 +130,7 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
     }
     clustering_output.close();
 }
+/*
 
 int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cluster_queue, igraph_t* graph, std::map<int, std::string>* new_to_original_id_map, int cluster_start, int previous_cluster_id, int iteration, uint64_t* opCount) {
     // std::ofstream clustering_output;
@@ -201,6 +202,7 @@ int ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<int>>* cl
     MPI_Bcast(&previous_cluster_id,1, MPI_INT, 0, MPI_COMM_WORLD, my_rank, iteration, 0, opCount);
     return previous_cluster_id;
 }
+    */
 
 void ConstrainedClustering::WritePartitionMap(std::map<int, int>& final_partition) {
     std::ofstream clustering_output(this->output_file);

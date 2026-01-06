@@ -24,7 +24,7 @@ enum ConnectednessCriterion {Simple, Logarithimic, Exponential};
 
 class ConstrainedClustering {
     public:
-        ConstrainedClustering(std::string edgelist, std::string algorithm, double clustering_parameter, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, int log_level, int my_rank, int nprocs) : edgelist(edgelist), algorithm(algorithm), clustering_parameter(clustering_parameter), existing_clustering(existing_clustering), num_processors(num_processors), output_file(output_file), log_file(log_file), log_level(log_level), my_rank(my_rank), nprocs(nprocs) {
+        ConstrainedClustering(std::string edgelist, std::string algorithm, double clustering_parameter, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, int log_level) : edgelist(edgelist), algorithm(algorithm), clustering_parameter(clustering_parameter), existing_clustering(existing_clustering), num_processors(num_processors), output_file(output_file), log_file(log_file), log_level(log_level) {
             if(this->log_level > -1) {
                 this->start_time = std::chrono::steady_clock::now();
                 this->log_file_handle.open(this->log_file);
@@ -38,7 +38,7 @@ class ConstrainedClustering {
             }
         }
 
-        virtual int main(int my_rank, int nprocs, uint64_t * opCount) = 0;
+        virtual int main() = 0;
         int WriteToLogFile(std::string message, Log message_type);
         int WriteToLogFile(std::string message, Log message_type, int my_rank);
         void WritePartitionMap(std::map<int,int>& final_partition);
@@ -609,8 +609,6 @@ class ConstrainedClustering {
         std::ofstream log_file_handle;
         int log_level;
         int num_calls_to_log_write;
-        int my_rank;
-        int nprocs;
 };
 
 #endif

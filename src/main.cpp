@@ -111,31 +111,29 @@ int main(int argc, char* argv[]) {
     /*     delete cm; */
     /* } else if(main_program.is_subcommand_used(mincut_only)) { */
     /* END comment out cm */
-    MPI_Init(&argc, &argv);
-    int my_rank;
-    int nprocs;
-    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
-    uint64_t * opCount;
-    opCount = new uint64_t[nprocs];
-    std::string mpi_log_file;
-    for (int i = 0; i < nprocs; i++) {
-        opCount[i] = 0;
-    }
+    // MPI_Init(&argc, &argv);
+    // int my_rank;
+    // int nprocs;
+    // MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    // MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+    // uint64_t * opCount;
+    // opCount = new uint64_t[nprocs];
+    // std::string mpi_log_file;
+    // for (int i = 0; i < nprocs; i++) {
+    //     opCount[i] = 0;
+    // }
     if(main_program.is_subcommand_used(mincut_only)) {
         std::string edgelist = mincut_only.get<std::string>("--edgelist");
         std::string existing_clustering = mincut_only.get<std::string>("--existing-clustering");
         int num_processors = mincut_only.get<int>("--num-processors");
         std::string output_file = mincut_only.get<std::string>("--output-file");
         std::string log_header = mincut_only.get<std::string>("--log-header");
-        std::string log_file = log_header+"_"+std::to_string(my_rank)+".log";
-        mpi_log_file = log_header+"_mpi.log";
+        std::string log_file = log_header+".log";
         int log_level = mincut_only.get<int>("--log-level") - 1; // so that enum is cleaner
         std::string connectedness_criterion = mincut_only.get<std::string>("--connectedness-criterion");
-        ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level, my_rank, nprocs);
+        ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level);
         random_functions::setSeed(0);
-        mincut_only->main(my_rank, nprocs, opCount);
+        mincut_only->main();
         delete mincut_only;
     }
-    MPI_Finalize(my_rank,nprocs, opCount, mpi_log_file);
 }
