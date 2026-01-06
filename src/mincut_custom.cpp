@@ -1,6 +1,6 @@
 #include "mincut_custom.h"
 
-int MinCutCustom::ComputeMinCut() {
+long MinCutCustom::ComputeMinCut() {
     igraph_vector_int_t node_degrees;
     igraph_vector_int_init(&node_degrees, igraph_vcount(this->graph));
     igraph_degree(this->graph, &node_degrees, igraph_vss_all(), IGRAPH_ALL, IGRAPH_NO_LOOPS);
@@ -163,10 +163,10 @@ int MinCutCustom::ComputeMinCut() {
 
 /*     return edge_cut_size; */
 /* } */
-const std::vector<int>& MinCutCustom::GetInPartition() const {
+const std::vector<long>& MinCutCustom::GetInPartition() const {
     return this->in_partition;
 }
-const std::vector<int>& MinCutCustom::GetOutPartition() const {
+const std::vector<long>& MinCutCustom::GetOutPartition() const {
     return this->out_partition;
 }
 /* const std::vector<int>& MinCutCustom::GetAllPartitions() const { */

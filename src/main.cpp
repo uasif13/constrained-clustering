@@ -1,10 +1,9 @@
 #include <iostream>
-#include <mpi_telemetry.h>
 
 #include "argparse.h"
 #include "constrained.h"
 #include "library.h"
-#include "mincut_only.h"
+#include "mincut_only_preprocess.h"
 /* #include "cm.h" */
 
 
@@ -17,6 +16,9 @@ int main(int argc, char* argv[]) {
 
     argparse::ArgumentParser mincut_only("MincutOnly");
     mincut_only.add_description("WCC");
+
+    argparse::ArgumentParser mincut_only_preprocess("MincutOnlyPreprocess");
+    mincut_only_preprocess.add_description("WCC w/ Preprocess");
 
     /* BEGIN comment out cm */
     /* cm.add_argument("--edgelist") */
@@ -85,8 +87,29 @@ int main(int argc, char* argv[]) {
     /* BEGIN comment out cm */
     /* main_program.add_subparser(cm); */
     /* END comment out cm */
+    mincut_only_preprocess.add_argument("--edgelist")
+        .required()
+        .help("Subgraph edge-list file");
+    mincut_only_preprocess.add_argument("--num-processors")
+        .default_value(int(1))
+        .help("Number of processors")
+        .scan<'d', int>();
+    mincut_only_preprocess.add_argument("--output-file")
+        .required()
+        .help("Output clustering file");
+    mincut_only_preprocess.add_argument("--log-file")
+        .required()
+        .help("Output log file");
+    mincut_only_preprocess.add_argument("--log-level")
+        .default_value(int(1))
+        .help("Log level where 0 = silent, 1 = info, 2 = verbose")
+        .scan<'d', int>();
+    mincut_only_preprocess.add_argument("--connectedness-criterion")
+        .default_value("1log_10(n)")
+        .help("String where CC = 0, and otherwise would be in the form of Clog_x(n) or Cn^x for well-connectedness");
 
     main_program.add_subparser(mincut_only);
+    main_program.add_subparser(mincut_only_preprocess);
     try {
         main_program.parse_args(argc, argv);
     } catch (const std::runtime_error& err) {
@@ -122,18 +145,30 @@ int main(int argc, char* argv[]) {
     // for (int i = 0; i < nprocs; i++) {
     //     opCount[i] = 0;
     // }
-    if(main_program.is_subcommand_used(mincut_only)) {
-        std::string edgelist = mincut_only.get<std::string>("--edgelist");
-        std::string existing_clustering = mincut_only.get<std::string>("--existing-clustering");
-        int num_processors = mincut_only.get<int>("--num-processors");
-        std::string output_file = mincut_only.get<std::string>("--output-file");
-        std::string log_header = mincut_only.get<std::string>("--log-header");
-        std::string log_file = log_header+".log";
-        int log_level = mincut_only.get<int>("--log-level") - 1; // so that enum is cleaner
-        std::string connectedness_criterion = mincut_only.get<std::string>("--connectedness-criterion");
-        ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level);
+    // if(main_program.is_subcommand_used(mincut_only)) {
+    //     std::string edgelist = mincut_only.get<std::string>("--edgelist");
+    //     std::string existing_clustering = mincut_only.get<std::string>("--existing-clustering");
+    //     int num_processors = mincut_only.get<int>("--num-processors");
+    //     std::string output_file = mincut_only.get<std::string>("--output-file");
+    //     std::string log_header = mincut_only.get<std::string>("--log-header");
+    //     std::string log_file = log_header+".log";
+    //     int log_level = mincut_only.get<int>("--log-level") - 1; // so that enum is cleaner
+    //     std::string connectedness_criterion = mincut_only.get<std::string>("--connectedness-criterion");
+    //     ConstrainedClustering* mincut_only = new MincutOnly(edgelist, existing_clustering, num_processors, output_file, log_file, connectedness_criterion, log_level);
+    //     random_functions::setSeed(0);
+    //     mincut_only->main();
+    //     delete mincut_only;
+    // }
+    if(main_program.is_subcommand_used(mincut_only_preprocess)) {
+        std::string edgelist = mincut_only_preprocess.get<std::string>("--edgelist");
+        int num_processors = mincut_only_preprocess.get<int>("--num-processors");
+        std::string output_file = mincut_only_preprocess.get<std::string>("--output-file");
+        std::string log_file = mincut_only_preprocess.get<std::string>("--log-file");
+        int log_level = mincut_only_preprocess.get<int>("--log-level") - 1; // so that enum is cleaner
+        std::string connectedness_criterion = mincut_only_preprocess.get<std::string>("--connectedness-criterion");
+        ConstrainedClustering* mincut_only_preprocess = new MincutOnlyPreProcess(edgelist, num_processors, output_file, log_file, connectedness_criterion, log_level);
         random_functions::setSeed(0);
-        mincut_only->main();
-        delete mincut_only;
+        mincut_only_preprocess->main();
+        delete mincut_only_preprocess;
     }
 }
