@@ -64,6 +64,7 @@ else()
 
     #[[ Link libraries ]]
     add_subdirectory(libs)
+    add_definitions(-w)
     target_link_libraries(constrained_clustering PUBLIC external_libs)
 
     #[[ Link external libraries ]]
