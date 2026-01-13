@@ -96,6 +96,26 @@ void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<int>>& clus
     clustering_output.close();
 }
 
+
+void ConstrainedClustering::WriteClusterQueue(std::queue<std::vector<long>>& cluster_queue) {
+    std::ofstream clustering_output(this->output_file);
+    int current_cluster_id = 0;
+    this->WriteToLogFile("final clusters:", Log::debug);
+
+    while(!cluster_queue.empty()) {
+        std::vector<long> current_cluster = cluster_queue.front();
+        cluster_queue.pop();
+        // this->WriteToLogFile("new cluster size: " + to_string(current_cluster.size()), Log::debug);
+        for(size_t i = 0; i < current_cluster.size(); i ++) {
+            // this->WriteToLogFile(to_string(current_cluster[i]), Log::debug);
+            clustering_output << current_cluster[i] << " " << current_cluster_id << '\n';
+        }
+        current_cluster_id ++;
+    }
+    clustering_output.close();
+    
+}
+
 void ConstrainedClustering::WritePartitionMap(std::map<int, int>& final_partition) {
     std::ofstream clustering_output(this->output_file);
     for(auto const& [node_id, cluster_id]: final_partition) {

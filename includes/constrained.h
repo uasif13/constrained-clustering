@@ -42,6 +42,7 @@ class ConstrainedClustering {
         int WriteToLogFile(std::string message, Log message_type);
         void WritePartitionMap(std::map<int,int>& final_partition);
         void WriteClusterQueue(std::queue<std::vector<int>>& to_be_clustered_clusters, igraph_t* graph, const std::map<int, std::string>& new_to_original_id_map);
+        void WriteClusterQueue(std::queue<std::vector<long>>& cluster_queue);   
         void InitializeConnectednessCriterion();
 
         std::map<std::string, int> GetOriginalToNewIdMap(std::string edgelist);
