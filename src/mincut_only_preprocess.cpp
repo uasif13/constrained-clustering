@@ -1,6 +1,5 @@
 #include "mincut_only_preprocess.h"
 #include "mmap_subgraph_loader.h"
-#include <iomanip>
 
 int MincutOnlyPreProcess::main() {
 
@@ -122,94 +121,5 @@ int MincutOnlyPreProcess::main() {
         
     this->WriteToLogFile("Writing output to: " + this->output_file, Log::info);
     this->WriteClusterQueue(MincutOnlyPreProcess::done_being_mincut_clusters);
-    
-    // ========== DIAGNOSTIC SUMMARY OUTPUT ==========
-    std::cerr << "\n";
-    std::cerr << "=============================================" << std::endl;
-    std::cerr << "   DIAGNOSTIC SUMMARY (RECURSIVE)" << std::endl;
-    std::cerr << "=============================================" << std::endl;
-    std::cerr << "Initial clusters:           " << before_mincut_number_of_clusters << std::endl;
-    std::cerr << "Connectedness criterion:    " << this->connectedness_criterion << std::endl;
-    if(current_connectedness_criterion == ConnectednessCriterion::Logarithimic) {
-        std::cerr << "  (C=" << connectedness_criterion_c << ", x=" << connectedness_criterion_x << ")" << std::endl;
-    } else if(current_connectedness_criterion == ConnectednessCriterion::Exponential) {
-        std::cerr << "  (C=" << connectedness_criterion_c << ", x=" << connectedness_criterion_x << ")" << std::endl;
-    }
-    std::cerr << "Clusters processed:         " << MincutOnlyPreProcess::g_clusters_processed.load() << std::endl;
-    std::cerr << "Mincuts computed:           " << MincutOnlyPreProcess::g_mincuts_computed.load() << std::endl;
-    std::cerr << "Output (well-connected):    " << MincutOnlyPreProcess::g_clusters_well_connected.load() << std::endl;
-    std::cerr << "Output (not-well-conn):     " << MincutOnlyPreProcess::g_clusters_not_well_connected.load() << std::endl;
-    std::cerr << "Both-singleton found:       " << MincutOnlyPreProcess::g_both_singleton_found.load() << std::endl;
-    std::cerr << "Empty vectors found:        " << MincutOnlyPreProcess::g_empty_vectors_found.load() << std::endl;
-    std::cerr << "---------------------------------------------" << std::endl;
-    std::cerr << "GCCP Analysis:" << std::endl;
-    std::cerr << "  GCCP calls:               " << MincutOnlyPreProcess::g_gccp_calls.load() << std::endl;
-    std::cerr << "  igraph found components:  " << MincutOnlyPreProcess::g_igraph_components_found.load() << std::endl;
-    std::cerr << "  GCCP returned components: " << MincutOnlyPreProcess::g_gccp_components_returned.load() << std::endl;
-    std::cerr << "  Zero-edge components:     " << MincutOnlyPreProcess::g_gccp_zero_edge_components.load() << std::endl;
-    
-    // Calculate averages
-    long gccp_calls = MincutOnlyPreProcess::g_gccp_calls.load();
-    if(gccp_calls > 0) {
-        double avg_igraph = (double)MincutOnlyPreProcess::g_igraph_components_found.load() / gccp_calls;
-        double avg_returned = (double)MincutOnlyPreProcess::g_gccp_components_returned.load() / gccp_calls;
-        std::cerr << "  Avg components per call:" << std::endl;
-        std::cerr << "    igraph finds:  " << std::fixed << std::setprecision(2) << avg_igraph << std::endl;
-        std::cerr << "    GCCP returns:  " << std::fixed << std::setprecision(2) << avg_returned << std::endl;
-    }
-    std::cerr << "=============================================" << std::endl;
-    
-    // Calculate and report discrepancies
-    long total_output = MincutOnlyPreProcess::g_clusters_well_connected.load() + 
-                        MincutOnlyPreProcess::g_clusters_not_well_connected.load();
-    long mincut_loss = MincutOnlyPreProcess::g_mincuts_computed.load() - total_output;
-    long process_loss = MincutOnlyPreProcess::g_clusters_processed.load() - 
-                        MincutOnlyPreProcess::g_mincuts_computed.load();
-    
-    std::cerr << "\nDiscrepancy Analysis:" << std::endl;
-    if(process_loss > 0) {
-        std::cerr << "  ⚠ WARNING: Lost " << process_loss 
-                  << " clusters between processing and mincut!" << std::endl;
-    }
-    if(mincut_loss > 0) {
-        std::cerr << "  ⚠ WARNING: Lost " << mincut_loss 
-                  << " clusters between mincut and output!" << std::endl;
-    }
-    if(MincutOnlyPreProcess::g_empty_vectors_found.load() > 0) {
-        std::cerr << "  ⚠ CRITICAL: Found " << MincutOnlyPreProcess::g_empty_vectors_found.load() 
-                  << " empty vectors from GetConnectedComponents!" << std::endl;
-        std::cerr << "     This is likely causing significant node loss." << std::endl;
-    }
-    if(MincutOnlyPreProcess::g_both_singleton_found.load() > 0) {
-        std::cerr << "  ⚠⚠⚠ CRITICAL BUG FOUND: " << MincutOnlyPreProcess::g_both_singleton_found.load() 
-                  << " clusters where BOTH partitions were singletons!" << std::endl;
-        std::cerr << "     These clusters were DROPPED (not processed further)." << std::endl;
-        std::cerr << "     THIS IS THE BUG - these 2-node clusters should be output as-is!" << std::endl;
-        std::cerr << "     Expected output: " << MincutOnlyPreProcess::g_clusters_well_connected.load() 
-                  << " + " << MincutOnlyPreProcess::g_both_singleton_found.load() 
-                  << " = " << (MincutOnlyPreProcess::g_clusters_well_connected.load() + 
-                              MincutOnlyPreProcess::g_both_singleton_found.load()) << " clusters" << std::endl;
-    }
-    
-    if(MincutOnlyPreProcess::g_gccp_components_returned.load() != 
-       MincutOnlyPreProcess::g_igraph_components_found.load()) {
-        long component_diff = MincutOnlyPreProcess::g_gccp_components_returned.load() - 
-                              MincutOnlyPreProcess::g_igraph_components_found.load();
-        std::cerr << "  ⚠ GCCP MISMATCH: GCCP returned " << component_diff 
-                  << " different components than igraph found!" << std::endl;
-        std::cerr << "     This could explain differences in splitting behavior." << std::endl;
-    }
-    
-    if(process_loss == 0 && mincut_loss == 0 && 
-       MincutOnlyPreProcess::g_empty_vectors_found.load() == 0 &&
-       MincutOnlyPreProcess::g_both_singleton_found.load() == 0) {
-        std::cerr << "  ✓ All counters balanced - no obvious loss detected" << std::endl;
-    }
-    
-    std::cerr << "\nFinal Output:" << std::endl;
-    std::cerr << "  Total clusters in output: " << MincutOnlyPreProcess::done_being_mincut_clusters.size() << std::endl;
-    std::cerr << "=============================================" << std::endl;
-    // ===============================================
-    
     return 0;
 }
