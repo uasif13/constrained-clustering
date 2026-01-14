@@ -58,6 +58,18 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                         //    
       
                 }
+                
+                // ========== DIAGNOSTIC: Check for empty vectors ==========
+                if(translated_cluster_vector.empty()) {
+                    static std::mutex diag_mutex;
+                    std::lock_guard<std::mutex> guard(diag_mutex);
+                    std::cerr << "[DIAG_EMPTY_REC] GetConnectedComponents returned EMPTY vector! "
+                              << "Partition had " << connected_components_vector[i].size() << " nodes, "
+                              << "but 0 edges in subgraph" << std::endl;
+                    g_empty_vectors_found.fetch_add(1);
+                }
+                // =========================================================
+                
                 cluster_vectors.push_back(translated_cluster_vector);
             }
             igraph_vector_int_destroy(&nodes_to_keep);
@@ -67,11 +79,26 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
         }
 
         static inline void ComputeMinCutRecursive(std::vector<long> current_cluster, ConnectednessCriterion current_connectedness_criterion, double connectedness_criterion_c, double connectedness_criterion_x, double pre_computed_log) {
+            
+            // ========== DIAGNOSTIC: Track recursive call ==========
+            g_clusters_processed.fetch_add(1);
+            // ======================================================
+            
             if(current_cluster.size() == 1 || current_cluster[0] == -1) {
                 // done with work!
                 /* std::cerr << "thread done" << std::endl; */
                 return;
             }
+            
+            // ========== DIAGNOSTIC: Log small clusters ==========
+            if(current_cluster.size() / 2 <= 5) {  // Edge pairs
+                static std::mutex diag_mutex;
+                std::lock_guard<std::mutex> guard(diag_mutex);
+                std::cerr << "[DIAG_PROC_REC] Processing cluster with " << current_cluster.size()/2 
+                          << " edges" << std::endl;
+            }
+            // ====================================================
+            
             /* std::cerr << "processing cluster of size:" << std::to_string(current_cluster.size()) << std::endl; */
             /* std::cerr << "current cluster size: " << current_cluster.size() << std::endl; */
             std::unordered_map<long, long> new_id_to_old_id_map;
@@ -117,8 +144,40 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
             long edge_cut_size = mcc.ComputeMinCut();
             std::vector<long> in_partition = mcc.GetInPartition();
             std::vector<long> out_partition = mcc.GetOutPartition();
+            
+            // ========== DIAGNOSTIC: Track mincut ==========
+            g_mincuts_computed.fetch_add(1);
+            
+            // Log small partitions
+            if(in_partition.size() <= 2 || out_partition.size() <= 2) {
+                static std::mutex diag_mutex;
+                std::lock_guard<std::mutex> guard(diag_mutex);
+                std::cerr << "[DIAG_PART_REC] Small partition: in=" << in_partition.size() 
+                          << " out=" << out_partition.size() 
+                          << " cut=" << edge_cut_size << std::endl;
+            }
+            // ==============================================
+            
             /* std::cerr << "got the cuts into " << std::to_string(in_partition.size()) << " and " << std::to_string(out_partition.size()) << std::endl; */
             bool current_criterion = ConstrainedClustering::IsWellConnected(current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, in_partition.size(), out_partition.size(), edge_cut_size);
+            
+            // ========== DIAGNOSTIC: Log criterion failures ==========
+            if(!current_criterion && next_node_id <= 5) {
+                static std::mutex diag_mutex;
+                std::lock_guard<std::mutex> guard(diag_mutex);
+                double criterion_needed = 0;
+                if(current_connectedness_criterion == ConnectednessCriterion::Logarithimic) {
+                    criterion_needed = connectedness_criterion_c * (std::log(in_partition.size() + out_partition.size()) / pre_computed_log);
+                } else if(current_connectedness_criterion == ConnectednessCriterion::Exponential) {
+                    criterion_needed = connectedness_criterion_c * std::pow(in_partition.size() + out_partition.size(), connectedness_criterion_x);
+                }
+                std::cerr << "[DIAG_CRIT_REC] NOT well-connected: in=" << in_partition.size() 
+                          << " out=" << out_partition.size()
+                          << " cut=" << edge_cut_size 
+                          << " criterion_needed=" << criterion_needed << std::endl;
+            }
+            // ========================================================
+            
             /* if(connectedness_criterion == ConnectednessCriterion::Simple) { */
             /*     current_criterion = ConstrainedClustering::IsConnected(edge_cut_size); */
             /* } else if(connectedness_criterion == ConnectednessCriterion::Well) { */
@@ -135,12 +194,39 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                 if(in_partition.size() == 1 || out_partition.size() == 1) {
                     static std::mutex diag_mutex;
                     std::lock_guard<std::mutex> guard(diag_mutex);
-                    std::cerr << "[DROP] in=" << in_partition.size() 
+                    std::cerr << "[DROP_REC] in=" << in_partition.size() 
                             << " out=" << out_partition.size() 
                             << " cut=" << edge_cut_size << std::endl;
                 }
+                
+                // ========== DIAGNOSTIC: Track both-singleton ==========
+                if(in_partition.size() == 1 && out_partition.size() == 1) {
+                    g_both_singleton_found.fetch_add(1);
+                }
+                // ======================================================
+                
+                // ========== DIAGNOSTIC: Track not-well-connected ==========
+                g_clusters_not_well_connected.fetch_add(1);
+                // ==========================================================
+                
                 if(in_partition.size() > 1) {
                     std::vector<std::vector<long>> in_clusters = GetConnectedComponentsOnPartition(&subgraph, in_partition, new_id_to_old_id_map);
+                    
+                    // ========== DIAGNOSTIC: Check for empty returns ==========
+                    int empty_count = 0;
+                    for(size_t i = 0; i < in_clusters.size(); i++) {
+                        if(in_clusters[i].empty()) {
+                            empty_count++;
+                        }
+                    }
+                    if(empty_count > 0) {
+                        static std::mutex diag_mutex;
+                        std::lock_guard<std::mutex> guard(diag_mutex);
+                        std::cerr << "[DIAG_EMPTY_RETURN_REC] GetConnectedComponents returned " << empty_count 
+                                  << " EMPTY vectors for in_partition (size=" << in_partition.size() << ")!" << std::endl;
+                    }
+                    // =========================================================
+                    
                     for(size_t i = 0; i < in_clusters.size(); i ++) {
                         
                             MincutOnlyPreProcess::ComputeMinCutRecursive(in_clusters[i], current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log);
@@ -149,11 +235,31 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                 }
                 if(out_partition.size() > 1) {
                     std::vector<std::vector<long>> out_clusters = GetConnectedComponentsOnPartition(&subgraph, out_partition, new_id_to_old_id_map);
+                    
+                    // ========== DIAGNOSTIC: Check for empty returns ==========
+                    int empty_count = 0;
+                    for(size_t i = 0; i < out_clusters.size(); i++) {
+                        if(out_clusters[i].empty()) {
+                            empty_count++;
+                        }
+                    }
+                    if(empty_count > 0) {
+                        static std::mutex diag_mutex;
+                        std::lock_guard<std::mutex> guard(diag_mutex);
+                        std::cerr << "[DIAG_EMPTY_RETURN_REC] GetConnectedComponents returned " << empty_count 
+                                  << " EMPTY vectors for out_partition (size=" << out_partition.size() << ")!" << std::endl;
+                    }
+                    // =========================================================
+                    
                     for(size_t i = 0; i < out_clusters.size(); i ++) {
                         MincutOnlyPreProcess::ComputeMinCutRecursive(out_clusters[i], current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log);
                     }
                 }
             } else {
+                // ========== DIAGNOSTIC: Track well-connected ==========
+                g_clusters_well_connected.fetch_add(1);
+                // ======================================================
+                
                 std::vector<long> cc;
                 for (int i = 0; i < igraph_vcount(&subgraph); i++) {
                     cc.push_back(new_id_to_old_id_map[i]);
@@ -165,6 +271,15 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
             }
             igraph_destroy(&subgraph);
         }
+        
+        // ========== DIAGNOSTIC: Global counters ==========
+        static inline std::atomic<long> g_clusters_processed{0};
+        static inline std::atomic<long> g_mincuts_computed{0};
+        static inline std::atomic<long> g_clusters_well_connected{0};
+        static inline std::atomic<long> g_clusters_not_well_connected{0};
+        static inline std::atomic<long> g_empty_vectors_found{0};
+        static inline std::atomic<long> g_both_singleton_found{0};
+        // =================================================
         
     private:
         static inline std::mutex to_be_mincut_mutex;
