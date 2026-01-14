@@ -1,5 +1,6 @@
 #include "mincut_only_preprocess.h"
 #include "mmap_subgraph_loader.h"
+#include <iomanip>
 
 int MincutOnlyPreProcess::main() {
 
@@ -140,6 +141,22 @@ int MincutOnlyPreProcess::main() {
     std::cerr << "Output (not-well-conn):     " << MincutOnlyPreProcess::g_clusters_not_well_connected.load() << std::endl;
     std::cerr << "Both-singleton found:       " << MincutOnlyPreProcess::g_both_singleton_found.load() << std::endl;
     std::cerr << "Empty vectors found:        " << MincutOnlyPreProcess::g_empty_vectors_found.load() << std::endl;
+    std::cerr << "---------------------------------------------" << std::endl;
+    std::cerr << "GCCP Analysis:" << std::endl;
+    std::cerr << "  GCCP calls:               " << MincutOnlyPreProcess::g_gccp_calls.load() << std::endl;
+    std::cerr << "  igraph found components:  " << MincutOnlyPreProcess::g_igraph_components_found.load() << std::endl;
+    std::cerr << "  GCCP returned components: " << MincutOnlyPreProcess::g_gccp_components_returned.load() << std::endl;
+    std::cerr << "  Zero-edge components:     " << MincutOnlyPreProcess::g_gccp_zero_edge_components.load() << std::endl;
+    
+    // Calculate averages
+    long gccp_calls = MincutOnlyPreProcess::g_gccp_calls.load();
+    if(gccp_calls > 0) {
+        double avg_igraph = (double)MincutOnlyPreProcess::g_igraph_components_found.load() / gccp_calls;
+        double avg_returned = (double)MincutOnlyPreProcess::g_gccp_components_returned.load() / gccp_calls;
+        std::cerr << "  Avg components per call:" << std::endl;
+        std::cerr << "    igraph finds:  " << std::fixed << std::setprecision(2) << avg_igraph << std::endl;
+        std::cerr << "    GCCP returns:  " << std::fixed << std::setprecision(2) << avg_returned << std::endl;
+    }
     std::cerr << "=============================================" << std::endl;
     
     // Calculate and report discrepancies
@@ -172,6 +189,15 @@ int MincutOnlyPreProcess::main() {
                   << " + " << MincutOnlyPreProcess::g_both_singleton_found.load() 
                   << " = " << (MincutOnlyPreProcess::g_clusters_well_connected.load() + 
                               MincutOnlyPreProcess::g_both_singleton_found.load()) << " clusters" << std::endl;
+    }
+    
+    if(MincutOnlyPreProcess::g_gccp_components_returned.load() != 
+       MincutOnlyPreProcess::g_igraph_components_found.load()) {
+        long component_diff = MincutOnlyPreProcess::g_gccp_components_returned.load() - 
+                              MincutOnlyPreProcess::g_igraph_components_found.load();
+        std::cerr << "  ⚠ GCCP MISMATCH: GCCP returned " << component_diff 
+                  << " different components than igraph found!" << std::endl;
+        std::cerr << "     This could explain differences in splitting behavior." << std::endl;
     }
     
     if(process_loss == 0 && mincut_loss == 0 && 
