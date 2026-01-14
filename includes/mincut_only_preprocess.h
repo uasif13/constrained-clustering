@@ -14,6 +14,10 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
         }
 
         static inline std::vector<std::vector<long>> GetConnectedComponentsOnPartition(const igraph_t* graph, std::vector<long>& partition, std::unordered_map<long, long> prev_new_id_to_old_id_map) {
+            // ========== DIAGNOSTIC: Track GCCP calls ==========
+            g_gccp_calls.fetch_add(1);
+            // ==================================================
+            
             std::vector<std::vector<long>> cluster_vectors;
             std::map<long, std::vector<long>> cluster_map;
             std::unordered_map<long, long> new_id_to_old_id_unordered_map;
@@ -30,6 +34,11 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
             igraph_induced_subgraph_map(graph, &induced_subgraph, igraph_vss_vector(&nodes_to_keep), IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH, NULL, &new_id_to_old_id_map);
             
             std::vector<std::vector<long>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&induced_subgraph);
+            
+            // ========== DIAGNOSTIC: Track components found by igraph ==========
+            g_igraph_components_found.fetch_add(connected_components_vector.size());
+            // ==================================================================
+            
             for (int i = 0; i < connected_components_vector.size(); i++) {
                 std::vector<long> translated_cluster_vector;
 
@@ -46,7 +55,13 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                 igraph_induced_subgraph_map(&induced_subgraph, &sub_subgraph, igraph_vss_vector(&sub_nodes_to_keep), IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH, NULL, &sub_new_id_to_old_id_vector_map);
                 igraph_eit_t eit;
                 igraph_eit_create(&sub_subgraph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
+                
+                // ========== DIAGNOSTIC: Track edges in component ==========
+                long edge_count = 0;
+                // ==========================================================
+                
                 for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
+                    edge_count++;
                     igraph_integer_t current_edge = IGRAPH_EIT_GET(eit);
                     long from_node = prev_new_id_to_old_id_map[VECTOR(new_id_to_old_id_map)[VECTOR(sub_new_id_to_old_id_vector_map)[IGRAPH_FROM(&sub_subgraph, current_edge)]]];
                     long to_node = prev_new_id_to_old_id_map[VECTOR(new_id_to_old_id_map)[VECTOR(sub_new_id_to_old_id_vector_map)[IGRAPH_TO(&sub_subgraph, current_edge)]]];
@@ -58,6 +73,24 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                         //    
       
                 }
+                
+                // ========== DIAGNOSTIC: Log GCCP behavior ==========
+                if(edge_count == 0) {
+                    g_gccp_zero_edge_components.fetch_add(1);
+                }
+                
+                static std::atomic<long> logged_samples{0};
+                if(logged_samples.load() < 100 && partition.size() <= 10) {
+                    logged_samples.fetch_add(1);
+                    static std::mutex diag_mutex;
+                    std::lock_guard<std::mutex> guard(diag_mutex);
+                    std::cerr << "[GCCP_QUEUE] partition_size=" << partition.size() 
+                              << " igraph_found=" << connected_components_vector.size()
+                              << " component_" << i << "_nodes=" << connected_components_vector[i].size()
+                              << " component_" << i << "_edges=" << edge_count
+                              << " output_size=" << translated_cluster_vector.size() << std::endl;
+                }
+                // ===================================================
                 
                 // ========== DIAGNOSTIC: Check for empty vectors ==========
                 if(translated_cluster_vector.empty()) {
@@ -72,6 +105,18 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                 
                 cluster_vectors.push_back(translated_cluster_vector);
             }
+            
+            // ========== DIAGNOSTIC: Track what GCCP returns ==========
+            g_gccp_components_returned.fetch_add(cluster_vectors.size());
+            
+            if(cluster_vectors.size() != connected_components_vector.size()) {
+                static std::mutex diag_mutex;
+                std::lock_guard<std::mutex> guard(diag_mutex);
+                std::cerr << "[GCCP_MISMATCH] igraph found " << connected_components_vector.size()
+                          << " components, but GCCP returning " << cluster_vectors.size() << std::endl;
+            }
+            // =========================================================
+            
             igraph_vector_int_destroy(&nodes_to_keep);
             igraph_vector_int_destroy(&new_id_to_old_id_map);
             igraph_destroy(&induced_subgraph);
@@ -315,6 +360,12 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
         static inline std::atomic<int> g_clusters_output_notdone{0};
         static inline std::atomic<int> g_empty_vectors_found{0};
         static inline std::atomic<int> g_both_singleton_fixed{0};
+        
+        // NEW: GCCP diagnostics
+        static inline std::atomic<long> g_gccp_calls{0};
+        static inline std::atomic<long> g_igraph_components_found{0};
+        static inline std::atomic<long> g_gccp_components_returned{0};
+        static inline std::atomic<long> g_gccp_zero_edge_components{0};
         // =================================================
         
     private:
