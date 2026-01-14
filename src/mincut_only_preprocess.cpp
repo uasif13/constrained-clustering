@@ -114,5 +114,49 @@ int MincutOnlyPreProcess::main() {
 
     this->WriteToLogFile("Writing output to: " + this->output_file, Log::info);
     this->WriteClusterQueue(MincutOnlyPreProcess::done_being_mincut_clusters);
+
+      // ========== DIAGNOSTIC SUMMARY ==========
+    std::cerr << "\n";
+    std::cerr << "=============================================" << std::endl;
+    std::cerr << "       DIAGNOSTIC SUMMARY" << std::endl;
+    std::cerr << "=============================================" << std::endl;
+    std::cerr << "Clusters dequeued:        " << MincutOnlyPreProcess::g_clusters_dequeued.load() << std::endl;
+    std::cerr << "Mincuts computed:         " << MincutOnlyPreProcess::g_clusters_mincut_computed.load() << std::endl;
+    std::cerr << "Output (well-connected):  " << MincutOnlyPreProcess::g_clusters_output_done.load() << std::endl;
+    std::cerr << "Output (not-well-conn):   " << MincutOnlyPreProcess::g_clusters_output_notdone.load() << std::endl;
+    std::cerr << "Both-singleton fixed:     " << MincutOnlyPreProcess::g_both_singleton_fixed.load() << std::endl;
+    std::cerr << "Empty vectors found:      " << MincutOnlyPreProcess::g_empty_vectors_found.load() << std::endl;
+    std::cerr << "=============================================" << std::endl;
+    
+    int total_output = MincutOnlyPreProcess::g_clusters_output_done.load() + 
+                       MincutOnlyPreProcess::g_clusters_output_notdone.load();
+    int mincut_loss = MincutOnlyPreProcess::g_clusters_mincut_computed.load() - total_output;
+    int dequeue_loss = MincutOnlyPreProcess::g_clusters_dequeued.load() - 
+                       MincutOnlyPreProcess::g_clusters_mincut_computed.load();
+    
+    std::cerr << "\nDiscrepancy Analysis:" << std::endl;
+    if(dequeue_loss > 0) {
+        std::cerr << "  ⚠ WARNING: Lost " << dequeue_loss 
+                  << " clusters between dequeue and mincut!" << std::endl;
+    }
+    if(mincut_loss > 0) {
+        std::cerr << "  ⚠ WARNING: Lost " << mincut_loss 
+                  << " clusters between mincut and output!" << std::endl;
+    }
+    if(MincutOnlyPreProcess::g_empty_vectors_found.load() > 0) {
+        std::cerr << "  ⚠ CRITICAL: Found " << MincutOnlyPreProcess::g_empty_vectors_found.load() 
+                  << " empty vectors from GetConnectedComponents!" << std::endl;
+        std::cerr << "     This is likely causing significant node loss." << std::endl;
+    }
+    if(MincutOnlyPreProcess::g_both_singleton_fixed.load() > 0) {
+        std::cerr << "  ✓ INFO: Fixed " << MincutOnlyPreProcess::g_both_singleton_fixed.load() 
+                  << " clusters where both partitions were singletons" << std::endl;
+    }
+    if(dequeue_loss == 0 && mincut_loss == 0 && 
+       MincutOnlyPreProcess::g_empty_vectors_found.load() == 0) {
+        std::cerr << "  ✓ All counters balanced - no obvious loss detected" << std::endl;
+    }
+    std::cerr << "=============================================" << std::endl;
+    
     return 0;
 }
