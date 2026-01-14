@@ -1,6 +1,5 @@
 #include "mincut_only_preprocess.h"
 #include "mmap_subgraph_loader.h"
-#include <iomanip>
 
 
 int MincutOnlyPreProcess::main() {
@@ -66,9 +65,6 @@ int MincutOnlyPreProcess::main() {
     for(size_t i = 0; i < subgraph_edges_vector.size(); i ++) {
         MincutOnlyPreProcess::to_be_mincut_clusters.push(subgraph_edges_vector[i]);
     }
-    
-    int initial_clusters = subgraph_edges_vector.size();
-    
     while (true) {
         /* std::cerr << "iter num: " << std::to_string(iter_count) << std::endl; */
         this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::debug);
@@ -118,84 +114,5 @@ int MincutOnlyPreProcess::main() {
 
     this->WriteToLogFile("Writing output to: " + this->output_file, Log::info);
     this->WriteClusterQueue(MincutOnlyPreProcess::done_being_mincut_clusters);
-
-    // ========== DIAGNOSTIC SUMMARY ==========
-    std::cerr << "\n";
-    std::cerr << "=============================================" << std::endl;
-    std::cerr << "   DIAGNOSTIC SUMMARY (QUEUE)" << std::endl;
-    std::cerr << "=============================================" << std::endl;
-    std::cerr << "Initial clusters:         " << initial_clusters << std::endl;
-    std::cerr << "Iterations:               " << iter_count << std::endl;
-    std::cerr << "Connectedness criterion:  " << this->connectedness_criterion << std::endl;
-    if(current_connectedness_criterion == ConnectednessCriterion::Logarithimic) {
-        std::cerr << "  (C=" << connectedness_criterion_c << ", x=" << connectedness_criterion_x << ")" << std::endl;
-    } else if(current_connectedness_criterion == ConnectednessCriterion::Exponential) {
-        std::cerr << "  (C=" << connectedness_criterion_c << ", x=" << connectedness_criterion_x << ")" << std::endl;
-    }
-    std::cerr << "Clusters dequeued:        " << MincutOnlyPreProcess::g_clusters_dequeued.load() << std::endl;
-    std::cerr << "Mincuts computed:         " << MincutOnlyPreProcess::g_clusters_mincut_computed.load() << std::endl;
-    std::cerr << "Output (well-connected):  " << MincutOnlyPreProcess::g_clusters_output_done.load() << std::endl;
-    std::cerr << "Output (not-well-conn):   " << MincutOnlyPreProcess::g_clusters_output_notdone.load() << std::endl;
-    std::cerr << "Both-singleton fixed:     " << MincutOnlyPreProcess::g_both_singleton_fixed.load() << std::endl;
-    std::cerr << "Empty vectors found:      " << MincutOnlyPreProcess::g_empty_vectors_found.load() << std::endl;
-    std::cerr << "---------------------------------------------" << std::endl;
-    std::cerr << "GCCP Analysis:" << std::endl;
-    std::cerr << "  GCCP calls:               " << MincutOnlyPreProcess::g_gccp_calls.load() << std::endl;
-    std::cerr << "  igraph found components:  " << MincutOnlyPreProcess::g_igraph_components_found.load() << std::endl;
-    std::cerr << "  GCCP returned components: " << MincutOnlyPreProcess::g_gccp_components_returned.load() << std::endl;
-    std::cerr << "  Zero-edge components:     " << MincutOnlyPreProcess::g_gccp_zero_edge_components.load() << std::endl;
-    
-    // Calculate averages
-    long gccp_calls = MincutOnlyPreProcess::g_gccp_calls.load();
-    if(gccp_calls > 0) {
-        double avg_igraph = (double)MincutOnlyPreProcess::g_igraph_components_found.load() / gccp_calls;
-        double avg_returned = (double)MincutOnlyPreProcess::g_gccp_components_returned.load() / gccp_calls;
-        std::cerr << "  Avg components per call:" << std::endl;
-        std::cerr << "    igraph finds:  " << std::fixed << std::setprecision(2) << avg_igraph << std::endl;
-        std::cerr << "    GCCP returns:  " << std::fixed << std::setprecision(2) << avg_returned << std::endl;
-    }
-    std::cerr << "=============================================" << std::endl;
-    
-    int total_output = MincutOnlyPreProcess::g_clusters_output_done.load() + 
-                       MincutOnlyPreProcess::g_clusters_output_notdone.load();
-    int mincut_loss = MincutOnlyPreProcess::g_clusters_mincut_computed.load() - total_output;
-    int dequeue_loss = MincutOnlyPreProcess::g_clusters_dequeued.load() - 
-                       MincutOnlyPreProcess::g_clusters_mincut_computed.load();
-    
-    std::cerr << "\nDiscrepancy Analysis:" << std::endl;
-    if(dequeue_loss > 0) {
-        std::cerr << "  ⚠ WARNING: Lost " << dequeue_loss 
-                  << " clusters between dequeue and mincut!" << std::endl;
-        std::cerr << "     (These are likely sentinel values - expected)" << std::endl;
-    }
-    if(mincut_loss > 0) {
-        std::cerr << "  ⚠ WARNING: Lost " << mincut_loss 
-                  << " clusters between mincut and output!" << std::endl;
-    }
-    if(MincutOnlyPreProcess::g_empty_vectors_found.load() > 0) {
-        std::cerr << "  ⚠ CRITICAL: Found " << MincutOnlyPreProcess::g_empty_vectors_found.load() 
-                  << " empty vectors from GetConnectedComponents!" << std::endl;
-        std::cerr << "     This is likely causing significant node loss." << std::endl;
-    }
-    if(MincutOnlyPreProcess::g_both_singleton_fixed.load() > 0) {
-        std::cerr << "  ✓ INFO: Fixed " << MincutOnlyPreProcess::g_both_singleton_fixed.load() 
-                  << " clusters where both partitions were singletons" << std::endl;
-    }
-    
-    if(MincutOnlyPreProcess::g_gccp_components_returned.load() != 
-       MincutOnlyPreProcess::g_igraph_components_found.load()) {
-        long component_diff = MincutOnlyPreProcess::g_gccp_components_returned.load() - 
-                              MincutOnlyPreProcess::g_igraph_components_found.load();
-        std::cerr << "  ⚠ GCCP MISMATCH: GCCP returned " << component_diff 
-                  << " different components than igraph found!" << std::endl;
-        std::cerr << "     This could explain differences in splitting behavior." << std::endl;
-    }
-    
-    if(dequeue_loss == 0 && mincut_loss == 0 && 
-       MincutOnlyPreProcess::g_empty_vectors_found.load() == 0) {
-        std::cerr << "  ✓ All counters balanced - no obvious loss detected" << std::endl;
-    }
-    std::cerr << "=============================================" << std::endl;
-    
     return 0;
 }

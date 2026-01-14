@@ -14,10 +14,6 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
         }
 
         static inline std::vector<std::vector<long>> GetConnectedComponentsOnPartition(const igraph_t* graph, std::vector<long>& partition, std::unordered_map<long, long> prev_new_id_to_old_id_map) {
-            // ========== DIAGNOSTIC: Track GCCP calls ==========
-            g_gccp_calls.fetch_add(1);
-            // ==================================================
-            
             std::vector<std::vector<long>> cluster_vectors;
             std::map<long, std::vector<long>> cluster_map;
             std::unordered_map<long, long> new_id_to_old_id_unordered_map;
@@ -34,11 +30,6 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
             igraph_induced_subgraph_map(graph, &induced_subgraph, igraph_vss_vector(&nodes_to_keep), IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH, NULL, &new_id_to_old_id_map);
             
             std::vector<std::vector<long>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&induced_subgraph);
-            
-            // ========== DIAGNOSTIC: Track components found by igraph ==========
-            g_igraph_components_found.fetch_add(connected_components_vector.size());
-            // ==================================================================
-            
             for (int i = 0; i < connected_components_vector.size(); i++) {
                 std::vector<long> translated_cluster_vector;
 
@@ -55,13 +46,7 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                 igraph_induced_subgraph_map(&induced_subgraph, &sub_subgraph, igraph_vss_vector(&sub_nodes_to_keep), IGRAPH_SUBGRAPH_CREATE_FROM_SCRATCH, NULL, &sub_new_id_to_old_id_vector_map);
                 igraph_eit_t eit;
                 igraph_eit_create(&sub_subgraph, igraph_ess_all(IGRAPH_EDGEORDER_ID), &eit);
-                
-                // ========== DIAGNOSTIC: Track edges in component ==========
-                long edge_count = 0;
-                // ==========================================================
-                
                 for(; !IGRAPH_EIT_END(eit); IGRAPH_EIT_NEXT(eit)) {
-                    edge_count++;
                     igraph_integer_t current_edge = IGRAPH_EIT_GET(eit);
                     long from_node = prev_new_id_to_old_id_map[VECTOR(new_id_to_old_id_map)[VECTOR(sub_new_id_to_old_id_vector_map)[IGRAPH_FROM(&sub_subgraph, current_edge)]]];
                     long to_node = prev_new_id_to_old_id_map[VECTOR(new_id_to_old_id_map)[VECTOR(sub_new_id_to_old_id_vector_map)[IGRAPH_TO(&sub_subgraph, current_edge)]]];
@@ -73,50 +58,8 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                         //    
       
                 }
-                
-                // ========== DIAGNOSTIC: Log GCCP behavior ==========
-                if(edge_count == 0) {
-                    g_gccp_zero_edge_components.fetch_add(1);
-                }
-                
-                static std::atomic<long> logged_samples{0};
-                if(logged_samples.load() < 100 && partition.size() <= 10) {
-                    logged_samples.fetch_add(1);
-                    static std::mutex diag_mutex;
-                    std::lock_guard<std::mutex> guard(diag_mutex);
-                    std::cerr << "[GCCP_QUEUE] partition_size=" << partition.size() 
-                              << " igraph_found=" << connected_components_vector.size()
-                              << " component_" << i << "_nodes=" << connected_components_vector[i].size()
-                              << " component_" << i << "_edges=" << edge_count
-                              << " output_size=" << translated_cluster_vector.size() << std::endl;
-                }
-                // ===================================================
-                
-                // ========== DIAGNOSTIC: Check for empty vectors ==========
-                if(translated_cluster_vector.empty()) {
-                    static std::mutex diag_mutex;
-                    std::lock_guard<std::mutex> guard(diag_mutex);
-                    std::cerr << "[DIAG_EMPTY] GetConnectedComponents returned EMPTY vector! "
-                              << "Partition had " << connected_components_vector[i].size() << " nodes, "
-                              << "but 0 edges in subgraph" << std::endl;
-                    g_empty_vectors_found.fetch_add(1);
-                }
-                // ========================================================
-                
                 cluster_vectors.push_back(translated_cluster_vector);
             }
-            
-            // ========== DIAGNOSTIC: Track what GCCP returns ==========
-            g_gccp_components_returned.fetch_add(cluster_vectors.size());
-            
-            if(cluster_vectors.size() != connected_components_vector.size()) {
-                static std::mutex diag_mutex;
-                std::lock_guard<std::mutex> guard(diag_mutex);
-                std::cerr << "[GCCP_MISMATCH] igraph found " << connected_components_vector.size()
-                          << " components, but GCCP returning " << cluster_vectors.size() << std::endl;
-            }
-            // =========================================================
-            
             igraph_vector_int_destroy(&nodes_to_keep);
             igraph_vector_int_destroy(&new_id_to_old_id_map);
             igraph_destroy(&induced_subgraph);
@@ -132,17 +75,6 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                 std::vector<long> current_cluster = MincutOnlyPreProcess::to_be_mincut_clusters.front();
                 MincutOnlyPreProcess::to_be_mincut_clusters.pop();
                 to_be_mincut_lock.unlock();
-                
-                // ========== DIAGNOSTIC: Track dequeue ==========
-                g_clusters_dequeued.fetch_add(1);
-                
-                // DIAGNOSTIC: Check for empty input
-                if(current_cluster.empty()) {
-                    std::cerr << "[DIAG_ERROR] Dequeued EMPTY cluster!" << std::endl;
-                    continue;
-                }
-                // ================================================
-                
                 if(current_cluster.size() == 1 || current_cluster[0] == -1) {
                     // done with work!
                     /* std::cerr << "thread done" << std::endl; */
@@ -173,16 +105,6 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                     VECTOR(edges)[i] = old_id_to_new_id_map[current_cluster[i]];
                     // std::cout << VECTOR(edges)[i] << " ";
                 }
-                
-                // ========== DIAGNOSTIC: Log small clusters being processed ==========
-                if(next_node_id <= 5) {  // Only log clusters with 5 or fewer nodes
-                    static std::mutex diag_mutex;
-                    std::lock_guard<std::mutex> guard(diag_mutex);
-                    std::cerr << "[DIAG_PROC] Processing cluster: edges=" << current_cluster.size()/2 
-                              << " unique_nodes=" << next_node_id << std::endl;
-                }
-                // ===================================================================
-                
                 igraph_t subgraph;
                 igraph_empty(&subgraph, next_node_id, IGRAPH_UNDIRECTED);
                 igraph_add_edges(&subgraph, &edges, NULL); 
@@ -203,41 +125,8 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                 long edge_cut_size = mcc.ComputeMinCut();
                 std::vector<long> in_partition = mcc.GetInPartition();
                 std::vector<long> out_partition = mcc.GetOutPartition();
-                
-                // ========== DIAGNOSTIC: Track mincut completion ==========
-                g_clusters_mincut_computed.fetch_add(1);
-                
-                // DIAGNOSTIC: Log small partitions
-                if(in_partition.size() <= 2 || out_partition.size() <= 2) {
-                    static std::mutex diag_mutex;
-                    std::lock_guard<std::mutex> guard(diag_mutex);
-                    std::cerr << "[DIAG_PART] Small partition: in=" << in_partition.size() 
-                              << " out=" << out_partition.size() 
-                              << " cut=" << edge_cut_size
-                              << " total_nodes=" << igraph_vcount(&subgraph) << std::endl;
-                }
-                // =========================================================
-                
                 /* std::cerr << "got the cuts into " << std::to_string(in_partition.size()) << " and " << std::to_string(out_partition.size()) << std::endl; */
                 bool current_criterion = ConstrainedClustering::IsWellConnected(current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, in_partition.size(), out_partition.size(), edge_cut_size);
-                
-                // ========== DIAGNOSTIC: Log criterion result ==========
-                if(!current_criterion && igraph_vcount(&subgraph) <= 5) {
-                    static std::mutex diag_mutex;
-                    std::lock_guard<std::mutex> guard(diag_mutex);
-                    double criterion_needed = 0;
-                    if(current_connectedness_criterion == ConnectednessCriterion::Logarithimic) {
-                        criterion_needed = connectedness_criterion_c * (std::log(in_partition.size() + out_partition.size()) / pre_computed_log);
-                    } else if(current_connectedness_criterion == ConnectednessCriterion::Exponential) {
-                        criterion_needed = connectedness_criterion_c * std::pow(in_partition.size() + out_partition.size(), connectedness_criterion_x);
-                    }
-                    std::cerr << "[DIAG_CRIT] NOT well-connected: in=" << in_partition.size() 
-                              << " out=" << out_partition.size()
-                              << " cut=" << edge_cut_size 
-                              << " criterion_needed=" << criterion_needed << std::endl;
-                }
-                // ======================================================
-                
                 /* if(connectedness_criterion == ConnectednessCriterion::Simple) { */
                 /*     current_criterion = ConstrainedClustering::IsConnected(edge_cut_size); */
                 /* } else if(connectedness_criterion == ConnectednessCriterion::Well) { */
@@ -251,58 +140,8 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                     /* for(size_t i = 0; i < out_partition.size(); i ++) { */
                     /*     out_partition[i] = VECTOR(new_id_to_old_id_map)[out_partition[i]]; */
                     /* } */
-                    if(in_partition.size() == 1 || out_partition.size() == 1) {
-                        static std::mutex diag_mutex;
-                        std::lock_guard<std::mutex> guard(diag_mutex);
-                        std::cerr << "[DROP] in=" << in_partition.size() 
-                                << " out=" << out_partition.size() 
-                                << " cut=" << edge_cut_size << std::endl;
-                    }
-                    if(in_partition.size() == 1 && out_partition.size() == 1) {
-                        // ========== DIAGNOSTIC: Track both-singleton case ==========
-                        g_both_singleton_fixed.fetch_add(1);
-                        // ===========================================================
-                        
-                        // Output original cluster unsplit
-                        std::vector<long> cc;
-                        for (int i = 0; i < igraph_vcount(&subgraph); i++) {
-                            cc.push_back(new_id_to_old_id_map[i]);
-                        }
-                        {
-                            std::unique_lock<std::mutex> lock{MincutOnlyPreProcess::done_being_mincut_mutex};
-                            MincutOnlyPreProcess::done_being_mincut_clusters.push(cc);
-                        }
-                        
-                        // ========== DIAGNOSTIC: Track output ==========
-                        g_clusters_output_notdone.fetch_add(1);
-                        // ==============================================
-                        
-                        igraph_destroy(&subgraph);
-                        return;  // Exit early
-                    }
-                    
-                    // ========== DIAGNOSTIC: Track not-well-connected path ==========
-                    g_clusters_output_notdone.fetch_add(1);
-                    // ===============================================================
-                    
                     if(in_partition.size() > 1) {
                         std::vector<std::vector<long>> in_clusters = GetConnectedComponentsOnPartition(&subgraph, in_partition, new_id_to_old_id_map);
-                        
-                        // ========== DIAGNOSTIC: Check for empty returns ==========
-                        int empty_count = 0;
-                        for(size_t i = 0; i < in_clusters.size(); i++) {
-                            if(in_clusters[i].empty()) {
-                                empty_count++;
-                            }
-                        }
-                        if(empty_count > 0) {
-                            static std::mutex diag_mutex;
-                            std::lock_guard<std::mutex> guard(diag_mutex);
-                            std::cerr << "[DIAG_EMPTY_RETURN] GetConnectedComponents returned " << empty_count 
-                                      << " EMPTY vectors for in_partition (size=" << in_partition.size() << ")!" << std::endl;
-                        }
-                        // =========================================================
-                        
                         for(size_t i = 0; i < in_clusters.size(); i ++) {
                             {
                                 std::lock_guard<std::mutex> to_be_mincut_guard(MincutOnlyPreProcess::to_be_mincut_mutex);
@@ -312,22 +151,6 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                     }
                     if(out_partition.size() > 1) {
                         std::vector<std::vector<long>> out_clusters = GetConnectedComponentsOnPartition(&subgraph, out_partition, new_id_to_old_id_map);
-                        
-                        // ========== DIAGNOSTIC: Check for empty returns ==========
-                        int empty_count = 0;
-                        for(size_t i = 0; i < out_clusters.size(); i++) {
-                            if(out_clusters[i].empty()) {
-                                empty_count++;
-                            }
-                        }
-                        if(empty_count > 0) {
-                            static std::mutex diag_mutex;
-                            std::lock_guard<std::mutex> guard(diag_mutex);
-                            std::cerr << "[DIAG_EMPTY_RETURN] GetConnectedComponents returned " << empty_count 
-                                      << " EMPTY vectors for out_partition (size=" << out_partition.size() << ")!" << std::endl;
-                        }
-                        // =========================================================
-                        
                         for(size_t i = 0; i < out_clusters.size(); i ++) {
                             {
                                 std::lock_guard<std::mutex> to_be_mincut_guard(MincutOnlyPreProcess::to_be_mincut_mutex);
@@ -344,30 +167,10 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                     std::unique_lock<std::mutex> done_being_mincut_lock{MincutOnlyPreProcess::done_being_mincut_mutex};
                     MincutOnlyPreProcess::done_being_mincut_clusters.push(cc);
                     done_being_mincut_lock.unlock();
-                    
-                    // ========== DIAGNOSTIC: Track well-connected output ==========
-                    g_clusters_output_done.fetch_add(1);
-                    // =============================================================
                 }
                 igraph_destroy(&subgraph);
             }
         }
-        
-        // ========== DIAGNOSTIC: Global counters ==========
-        static inline std::atomic<int> g_clusters_dequeued{0};
-        static inline std::atomic<int> g_clusters_mincut_computed{0};
-        static inline std::atomic<int> g_clusters_output_done{0};
-        static inline std::atomic<int> g_clusters_output_notdone{0};
-        static inline std::atomic<int> g_empty_vectors_found{0};
-        static inline std::atomic<int> g_both_singleton_fixed{0};
-        
-        // NEW: GCCP diagnostics
-        static inline std::atomic<long> g_gccp_calls{0};
-        static inline std::atomic<long> g_igraph_components_found{0};
-        static inline std::atomic<long> g_gccp_components_returned{0};
-        static inline std::atomic<long> g_gccp_zero_edge_components{0};
-        // =================================================
-        
     private:
         static inline std::mutex to_be_mincut_mutex;
         static inline std::condition_variable to_be_mincut_condition_variable;
