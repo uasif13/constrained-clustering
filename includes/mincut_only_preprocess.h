@@ -140,6 +140,13 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                     /* for(size_t i = 0; i < out_partition.size(); i ++) { */
                     /*     out_partition[i] = VECTOR(new_id_to_old_id_map)[out_partition[i]]; */
                     /* } */
+                    if(in_partition.size() == 1 || out_partition.size() == 1) {
+                        static std::mutex diag_mutex;
+                        std::lock_guard<std::mutex> guard(diag_mutex);
+                        std::cerr << "[DROP] in=" << in_partition.size() 
+                                << " out=" << out_partition.size() 
+                                << " cut=" << edge_cut_size << std::endl;
+                    }
                     if(in_partition.size() == 1 && out_partition.size() == 1) {
                         // Output original cluster unsplit
                         std::vector<long> cc;
