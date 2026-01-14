@@ -140,6 +140,19 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                     /* for(size_t i = 0; i < out_partition.size(); i ++) { */
                     /*     out_partition[i] = VECTOR(new_id_to_old_id_map)[out_partition[i]]; */
                     /* } */
+                    if(in_partition.size() == 1 && out_partition.size() == 1) {
+                        // Output original cluster unsplit
+                        std::vector<long> cc;
+                        for (int i = 0; i < igraph_vcount(&subgraph); i++) {
+                            cc.push_back(new_id_to_old_id_map[i]);
+                        }
+                        {
+                            std::unique_lock<std::mutex> lock{MincutOnlyPreProcess::done_being_mincut_mutex};
+                            MincutOnlyPreProcess::done_being_mincut_clusters.push(cc);
+                        }
+                        igraph_destroy(&subgraph);
+                        return;  // Exit early
+                    }
                     if(in_partition.size() > 1) {
                         std::vector<std::vector<long>> in_clusters = GetConnectedComponentsOnPartition(&subgraph, in_partition, new_id_to_old_id_map);
                         for(size_t i = 0; i < in_clusters.size(); i ++) {
