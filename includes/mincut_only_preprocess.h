@@ -15,8 +15,6 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
 
         static inline std::vector<std::vector<long>> GetConnectedComponentsOnPartition(const igraph_t* graph, std::vector<long>& partition, std::unordered_map<long, long> prev_new_id_to_old_id_map) {
             std::vector<std::vector<long>> cluster_vectors;
-            std::map<long, std::vector<long>> cluster_map;
-            std::unordered_map<long, long> new_id_to_old_id_unordered_map;
             igraph_vector_int_t nodes_to_keep;
             igraph_vector_int_t new_id_to_old_id_map;
             igraph_vector_int_init(&new_id_to_old_id_map, partition.size());
@@ -55,9 +53,11 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                     translated_cluster_vector.push_back(from_node);   
                     translated_cluster_vector.push_back(to_node);  
                     // }
-                        //    
-      
+                        //      
                 }
+                igraph_vector_int_destroy(&sub_nodes_to_keep);
+                igraph_vector_int_destroy(&sub_new_id_to_old_id_vector_map);
+                igraph_destroy(&sub_subgraph);
                 cluster_vectors.push_back(translated_cluster_vector);
             }
             igraph_vector_int_destroy(&nodes_to_keep);
@@ -83,7 +83,6 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                 /* std::cerr << "processing cluster of size:" << std::to_string(current_cluster.size()) << std::endl; */
                 /* std::cerr << "current cluster size: " << current_cluster.size() << std::endl; */
                 std::unordered_map<long, long> new_id_to_old_id_map;
-                std::unordered_map<long, long> newnew_id_to_old_id_map;
                 std::unordered_map<long, long> old_id_to_new_id_map;
 
                 igraph_vector_int_t edges;
@@ -168,6 +167,7 @@ class MincutOnlyPreProcess : public ConstrainedClustering {
                     MincutOnlyPreProcess::done_being_mincut_clusters.push(cc);
                     done_being_mincut_lock.unlock();
                 }
+                igraph_vector_int_destroy(&edges);
                 igraph_destroy(&subgraph);
             }
         }
