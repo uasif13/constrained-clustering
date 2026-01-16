@@ -27,7 +27,7 @@ std::map<std::string, int> ConstrainedClustering::GetOriginalToNewIdMap(std::str
             continue;
         }
         std::string source = current_line[0];
-        std::string target = current_line[1];
+        std::string target = current_line[current_line.size()-1];
         if (!original_to_new_id_map.contains(source)) {
             original_to_new_id_map[source] = next_node_id;
             next_node_id ++;
@@ -64,12 +64,15 @@ void ConstrainedClustering::LoadEdgesFromFile(igraph_t* graph, std::string edgel
             continue;
         }
         std::string source = current_line[0];
-        std::string target = current_line[1];
+        std::string target = current_line[current_line.size()-1];
         /* igraph_add_edge(graph, original_to_new_id_map.at(source), original_to_new_id_map.at(target)); */
-        VECTOR(edges)[edge_index] = original_to_new_id_map.at(source);
-        edge_index ++;
-        VECTOR(edges)[edge_index] = original_to_new_id_map.at(target);
-        edge_index ++;
+	if (original_to_new_id_map.contains(source) && original_to_new_id_map.contains(target)) {
+	  VECTOR(edges)[edge_index] = original_to_new_id_map.at(source);
+	  edge_index ++;
+	  VECTOR(edges)[edge_index] = original_to_new_id_map.at(target);
+	  edge_index ++;
+	}
+
         line_no ++;
 
     }
