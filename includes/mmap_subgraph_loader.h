@@ -104,6 +104,9 @@ public:
 
             SkipToNextLine(ptr, end);
         }
+        if (!cc.empty()) {
+            result.push_back(cc);
+        }
 
         munmap(mapped, file_size);
         close(fd);
