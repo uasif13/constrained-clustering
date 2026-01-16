@@ -100,7 +100,8 @@ class CM : public ConstrainedClustering {
                                 current_cluster_set.erase(new_id_to_old_id_map[node_to_remove]);
                                 // MARK: possibly changes behavior?
                                 // igraph_delete_vertices_idx(&induced_subgraph, igraph_vss_1(node_to_remove), NULL, &newnew_id_to_new_id_map);
-                                igraph_delete_vertices_map(&induced_subgraph, igraph_vss_1(node_to_remove), NULL, &newnew_id_to_new_id_map);
+				//                                igraph_delete_vertices_map(&induced_subgraph, igraph_vss_1(node_to_remove), NULL, &newnew_id_to_new_id_map);
+				igraph_delete_vertices_idx(&induced_subgraph, igraph_vss_1(node_to_remove), NULL, &newnew_id_to_new_id_map);
                                 for(int i = 0; i < igraph_vector_int_size(&newnew_id_to_new_id_map); i ++) {
                                     int newnew_id = i;
                                     int new_id = VECTOR(newnew_id_to_new_id_map)[newnew_id];

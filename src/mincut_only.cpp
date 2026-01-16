@@ -19,7 +19,7 @@ int MincutOnly::main() {
     igraph_t graph;
     igraph_empty(&graph, 0, IGRAPH_UNDIRECTED);
     this->LoadEdgesFromFile(&graph, this->edgelist, original_to_new_id_map);
-    this->WriteToLogFile("Finished loading the initial graph" , Log::info);
+    this->WriteToLogFile("Finished loading the initial graph vertex count: " +std::to_string(igraph_vcount(&graph)) + " edge count: " + std::to_string(igraph_ecount(&graph))  , Log::info);
 
     int before_mincut_number_of_clusters = -1;
     int after_mincut_number_of_clusters = -2;
@@ -35,8 +35,10 @@ int MincutOnly::main() {
     /* std::cerr << "num nodes after intercluster removal: " << igraph_vcount(&graph)  << std::endl; */
     /* std::cerr << "num edges after intercluster removal: " << igraph_ecount(&graph)  << std::endl; */
 
+
     /** SECTION Get Connected Components START **/
     std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&graph);
+    this -> WriteToLogFile("Connected components count: " + std::to_string(connected_components_vector.size()), Log::info);
     /** SECTION Get Connected Components END **/
     if(current_connectedness_criterion == ConnectednessCriterion::Simple) {
         for(size_t i = 0; i < connected_components_vector.size(); i ++) {
