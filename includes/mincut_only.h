@@ -5,25 +5,6 @@
 #include <iomanip>
 #include <sstream>
 
-// Thread-safe logging helper
-class DiagnosticLogger {
-public:
-    static std::mutex log_mutex;
-    
-    static void Log(const std::string& message) {
-        std::lock_guard<std::mutex> guard(log_mutex);
-        std::cerr << message << std::endl;
-    }
-    
-    static std::string GetTimestamp() {
-        auto now = std::chrono::steady_clock::now();
-        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-        return "[T=" + std::to_string(ms) + "ms]";
-    }
-};
-
-std::mutex DiagnosticLogger::log_mutex;
-
 class MincutOnly : public ConstrainedClustering {
     public:
         MincutOnly(std::string edgelist, std::string existing_clustering, int num_processors, std::string output_file, std::string log_file, int log_level, std::string connectedness_criterion, std::string mincut_type) : ConstrainedClustering(edgelist, "", -1, existing_clustering, num_processors, output_file, log_file, "", log_level, connectedness_criterion, mincut_type) {
@@ -44,8 +25,11 @@ class MincutOnly : public ConstrainedClustering {
             std::vector<std::vector<int>> connected_components_vector = ConstrainedClustering::GetConnectedComponents(&induced_subgraph);
             
             // DIAGNOSTIC: Log CC extraction from partition
-            DiagnosticLogger::Log("  [CC_EXTRACT] Partition size=" + std::to_string(partition.size()) + 
-                                 " -> " + std::to_string(connected_components_vector.size()) + " components");
+            {
+                std::lock_guard<std::mutex> guard(diagnostic_log_mutex);
+                std::cerr << "  [CC_EXTRACT] Partition size=" << partition.size() 
+                         << " -> " << connected_components_vector.size() << " components" << std::endl;
+            }
             
             for(size_t i = 0; i < connected_components_vector.size(); i ++) {
                 std::vector<int> translated_cluster_vector;
@@ -78,10 +62,10 @@ class MincutOnly : public ConstrainedClustering {
             int64_t total_nodes_completed = 0;
             int64_t total_nodes_split = 0;
             
-            std::stringstream thread_log;
-            thread_log << DiagnosticLogger::GetTimestamp() 
-                      << " [WORKER-" << thread_id << "] Starting";
-            DiagnosticLogger::Log(thread_log.str());
+            {
+                std::lock_guard<std::mutex> guard(diagnostic_log_mutex);
+                std::cerr << "[WORKER-" << thread_id << "] Starting" << std::endl;
+            }
             
             while (true) {
                 std::unique_lock<std::mutex> to_be_mincut_lock{to_be_mincut_mutex};
@@ -100,18 +84,16 @@ class MincutOnly : public ConstrainedClustering {
                 
                 // Check for termination signal
                 if(current_cluster.size() == 1 && current_cluster[0] == -1) {
-                    std::stringstream ss;
-                    ss << DiagnosticLogger::GetTimestamp() 
-                       << " [WORKER-" << thread_id << "] TERMINATING"
-                       << "\n    Processed: " << clusters_processed
-                       << " | Completed: " << clusters_completed 
-                       << " | Split: " << clusters_split
-                       << "\n    Singleton IN: " << singleton_in_count
-                       << " | Singleton OUT: " << singleton_out_count
-                       << "\n    Nodes: Processed=" << total_nodes_processed
-                       << " Completed=" << total_nodes_completed
-                       << " Split=" << total_nodes_split;
-                    DiagnosticLogger::Log(ss.str());
+                    std::lock_guard<std::mutex> guard(diagnostic_log_mutex);
+                    std::cerr << "[WORKER-" << thread_id << "] TERMINATING" << std::endl;
+                    std::cerr << "    Processed: " << clusters_processed
+                              << " | Completed: " << clusters_completed 
+                              << " | Split: " << clusters_split << std::endl;
+                    std::cerr << "    Singleton IN: " << singleton_in_count
+                              << " | Singleton OUT: " << singleton_out_count << std::endl;
+                    std::cerr << "    Nodes: Processed=" << total_nodes_processed
+                              << " Completed=" << total_nodes_completed
+                              << " Split=" << total_nodes_split << std::endl;
                     return;
                 }
                 
@@ -120,20 +102,16 @@ class MincutOnly : public ConstrainedClustering {
                 total_nodes_processed += current_cluster.size();
                 
                 if (clusters_processed <= 5 || clusters_processed % 100 == 0) {
-                    std::stringstream ss;
-                    ss << DiagnosticLogger::GetTimestamp() 
-                       << " [WORKER-" << thread_id << "] #" << clusters_processed
-                       << " Dequeued cluster: size=" << current_cluster.size()
-                       << " queue_remaining=" << queue_size_after_dequeue;
-                    DiagnosticLogger::Log(ss.str());
+                    std::lock_guard<std::mutex> guard(diagnostic_log_mutex);
+                    std::cerr << "[WORKER-" << thread_id << "] #" << clusters_processed
+                              << " Dequeued cluster: size=" << current_cluster.size()
+                              << " queue_remaining=" << queue_size_after_dequeue << std::endl;
                 }
                 
                 // Validate cluster
                 if (current_cluster.empty()) {
-                    std::stringstream ss;
-                    ss << DiagnosticLogger::GetTimestamp() 
-                       << " [WORKER-" << thread_id << "] ERROR: Empty cluster dequeued!";
-                    DiagnosticLogger::Log(ss.str());
+                    std::lock_guard<std::mutex> guard(diagnostic_log_mutex);
+                    std::cerr << "[WORKER-" << thread_id << "] ERROR: Empty cluster dequeued!" << std::endl;
                     continue;
                 }
                 
@@ -161,16 +139,15 @@ class MincutOnly : public ConstrainedClustering {
                 if (is_singleton_out) singleton_out_count++;
                 
                 if (clusters_processed <= 5 || is_singleton_in || is_singleton_out || clusters_processed % 100 == 0) {
-                    std::stringstream ss;
-                    ss << DiagnosticLogger::GetTimestamp() 
-                       << " [WORKER-" << thread_id << "] #" << clusters_processed << " MINCUT"
-                       << " IN=" << in_partition.size() 
-                       << " OUT=" << out_partition.size()
-                       << " CUT=" << edge_cut_size;
+                    std::lock_guard<std::mutex> guard(diagnostic_log_mutex);
+                    std::cerr << "[WORKER-" << thread_id << "] #" << clusters_processed << " MINCUT"
+                              << " IN=" << in_partition.size() 
+                              << " OUT=" << out_partition.size()
+                              << " CUT=" << edge_cut_size;
                     if (is_singleton_in || is_singleton_out) {
-                        ss << " **SINGLETON**";
+                        std::cerr << " **SINGLETON**";
                     }
-                    DiagnosticLogger::Log(ss.str());
+                    std::cerr << std::endl;
                 }
                 
                 bool current_criterion = ConstrainedClustering::IsWellConnected(current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log, in_partition.size(), out_partition.size(), edge_cut_size);
@@ -202,11 +179,9 @@ class MincutOnly : public ConstrainedClustering {
                     } else if (in_partition.size() == 1) {
                         // DIAGNOSTIC: Track singleton handling
                         total_singleton_partitions_discarded++;
-                        std::stringstream ss;
-                        ss << DiagnosticLogger::GetTimestamp() 
-                           << " [WORKER-" << thread_id << "] #" << clusters_processed 
-                           << " SINGLETON_IN discarded (size=1)";
-                        DiagnosticLogger::Log(ss.str());
+                        std::lock_guard<std::mutex> guard(diagnostic_log_mutex);
+                        std::cerr << "[WORKER-" << thread_id << "] #" << clusters_processed 
+                                  << " SINGLETON_IN discarded (size=1)" << std::endl;
                     }
                     
                     // Process OUT partition
@@ -228,22 +203,18 @@ class MincutOnly : public ConstrainedClustering {
                     } else if (out_partition.size() == 1) {
                         // DIAGNOSTIC: Track singleton handling
                         total_singleton_partitions_discarded++;
-                        std::stringstream ss;
-                        ss << DiagnosticLogger::GetTimestamp() 
-                           << " [WORKER-" << thread_id << "] #" << clusters_processed 
-                           << " SINGLETON_OUT discarded (size=1)";
-                        DiagnosticLogger::Log(ss.str());
+                        std::lock_guard<std::mutex> guard(diagnostic_log_mutex);
+                        std::cerr << "[WORKER-" << thread_id << "] #" << clusters_processed 
+                                  << " SINGLETON_OUT discarded (size=1)" << std::endl;
                     }
                     
                     // DIAGNOSTIC: Log split operation
                     if (clusters_processed <= 5 || clusters_processed % 100 == 0) {
-                        std::stringstream ss;
-                        ss << DiagnosticLogger::GetTimestamp() 
-                           << " [WORKER-" << thread_id << "] #" << clusters_processed << " SPLIT"
-                           << " original_size=" << current_cluster.size()
-                           << " -> " << components_added << " components"
-                           << " total_nodes=" << nodes_in_components;
-                        DiagnosticLogger::Log(ss.str());
+                        std::lock_guard<std::mutex> guard(diagnostic_log_mutex);
+                        std::cerr << "[WORKER-" << thread_id << "] #" << clusters_processed << " SPLIT"
+                                  << " original_size=" << current_cluster.size()
+                                  << " -> " << components_added << " components"
+                                  << " total_nodes=" << nodes_in_components << std::endl;
                     }
                     
                     // CRITICAL CHECK: Node conservation
@@ -254,14 +225,12 @@ class MincutOnly : public ConstrainedClustering {
                     int expected_nodes_in_components = expected_nodes - discarded_singletons;
                     
                     if (nodes_in_components != expected_nodes_in_components) {
-                        std::stringstream ss;
-                        ss << DiagnosticLogger::GetTimestamp() 
-                           << " [WORKER-" << thread_id << "] #" << clusters_processed 
-                           << " **NODE MISMATCH** Expected=" << expected_nodes_in_components
-                           << " Got=" << nodes_in_components
-                           << " (Original=" << expected_nodes 
-                           << " Discarded=" << discarded_singletons << ")";
-                        DiagnosticLogger::Log(ss.str());
+                        std::lock_guard<std::mutex> guard(diagnostic_log_mutex);
+                        std::cerr << "[WORKER-" << thread_id << "] #" << clusters_processed 
+                                  << " **NODE MISMATCH** Expected=" << expected_nodes_in_components
+                                  << " Got=" << nodes_in_components
+                                  << " (Original=" << expected_nodes 
+                                  << " Discarded=" << discarded_singletons << ")" << std::endl;
                         total_node_conservation_violations++;
                     }
                     
@@ -276,11 +245,9 @@ class MincutOnly : public ConstrainedClustering {
                     done_being_mincut_lock.unlock();
                     
                     if (clusters_processed <= 5 || clusters_processed % 100 == 0) {
-                        std::stringstream ss;
-                        ss << DiagnosticLogger::GetTimestamp() 
-                           << " [WORKER-" << thread_id << "] #" << clusters_processed 
-                           << " COMPLETED size=" << current_cluster.size();
-                        DiagnosticLogger::Log(ss.str());
+                        std::lock_guard<std::mutex> guard(diagnostic_log_mutex);
+                        std::cerr << "[WORKER-" << thread_id << "] #" << clusters_processed 
+                                  << " COMPLETED size=" << current_cluster.size() << std::endl;
                     }
                 }
                 
@@ -303,6 +270,15 @@ class MincutOnly : public ConstrainedClustering {
         static inline std::atomic<uint64_t> total_clusters_completed{0};
         static inline std::atomic<uint64_t> total_singleton_partitions_discarded{0};
         static inline std::atomic<uint64_t> total_node_conservation_violations{0};
+        
+        // DIAGNOSTIC: Mutex for thread-safe stderr logging
+        static inline std::mutex diagnostic_log_mutex;
+        
+        // Helper for thread-safe logging
+        static inline void DiagnosticLog(const std::string& message) {
+            std::lock_guard<std::mutex> guard(diagnostic_log_mutex);
+            std::cerr << message << std::endl;
+        }
 };
 
 #endif
