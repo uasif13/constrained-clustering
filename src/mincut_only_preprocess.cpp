@@ -198,11 +198,11 @@ int MincutOnlyPreProcess::main() {
 
         iter_count ++;
         
-        if (iter_count > 10000) {
-            std::cerr << "[MAIN WARNING] Reached 10000 iterations, possible infinite loop!" << std::endl;
-            std::cerr << "[MAIN] Breaking out of loop..." << std::endl;
-            break;
-        }
+        // if (iter_count > 10000) {
+        //     std::cerr << "[MAIN WARNING] Reached 10000 iterations, possible infinite loop!" << std::endl;
+        //     std::cerr << "[MAIN] Breaking out of loop..." << std::endl;
+        //     break;
+        // }
     }
 
     std::cerr << "\n[MAIN] ======== Writing Output ========" << std::endl;
