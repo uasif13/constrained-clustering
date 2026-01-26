@@ -4,12 +4,11 @@
 
 int MincutOnlyPreProcess::main() {
 
-    std::cerr << "\n========================================" << std::endl;
-    std::cerr << "[MAIN] Starting MincutOnlyPreProcess::main() (QUEUE-BASED)" << std::endl;
-    std::cerr << "========================================\n" << std::endl;
+    this->WriteToLogFile("========================================", Log::info);
+    this->WriteToLogFile("Starting MincutOnlyPreProcess::main() (QUEUE-BASED)", Log::info);
+    this->WriteToLogFile("========================================", Log::info);
 
-    this->WriteToLogFile("Parsing connectedness criterion" , Log::info);
-    std::cerr << "[MAIN] Parsing connectedness criterion: " << this->connectedness_criterion << std::endl;
+    this->WriteToLogFile("Parsing connectedness criterion: " + this->connectedness_criterion, Log::info);
     
 /* F(n) = C log_x(n), where C and x are parameters specified by the user (our default is C=1 and x=10) */
 /* G(n) = C n^x, where C and x are parameterss specified by the user (here, presumably 0<x<2). Note that x=1 makes it linear. */
@@ -22,7 +21,7 @@ int MincutOnlyPreProcess::main() {
     ConnectednessCriterion current_connectedness_criterion = ConnectednessCriterion::Simple;
     
     if (log_position != std::string::npos) {
-        std::cerr << "[MAIN] Detected logarithmic connectedness criterion" << std::endl;
+        this->WriteToLogFile("Detected logarithmic connectedness criterion", Log::info);
         // is Clog_x(n)
         current_connectedness_criterion = ConnectednessCriterion::Logarithimic;
         if (log_position == 0) {
@@ -32,9 +31,9 @@ int MincutOnlyPreProcess::main() {
         }
         size_t open_parenthesis_position = this->connectedness_criterion.find("(", log_position + 4);
         connectedness_criterion_x = std::stod(this->connectedness_criterion.substr(log_position + 4, open_parenthesis_position));
-        std::cerr << "[MAIN] C=" << connectedness_criterion_c << ", x=" << connectedness_criterion_x << std::endl;
+        this->WriteToLogFile("C=" + std::to_string(connectedness_criterion_c) + ", x=" + std::to_string(connectedness_criterion_x), Log::info);
     } else if (n_caret_position != std::string::npos) {
-        std::cerr << "[MAIN] Detected exponential connectedness criterion" << std::endl;
+        this->WriteToLogFile("Detected exponential connectedness criterion", Log::info);
         // is cN^x
         current_connectedness_criterion = ConnectednessCriterion::Exponential;
         if (n_caret_position == 0) {
@@ -43,11 +42,11 @@ int MincutOnlyPreProcess::main() {
             connectedness_criterion_c = std::stod(this->connectedness_criterion.substr(0, n_caret_position));
         }
         connectedness_criterion_x = std::stod(this->connectedness_criterion.substr(n_caret_position + 2));
-        std::cerr << "[MAIN] C=" << connectedness_criterion_c << ", x=" << connectedness_criterion_x << std::endl;
+        this->WriteToLogFile("C=" + std::to_string(connectedness_criterion_c) + ", x=" + std::to_string(connectedness_criterion_x), Log::info);
     } else if (this->connectedness_criterion != "0") {
         // wasn't log or exponent so if it isn't 0 then it's an error
         // exit
-        std::cerr << "[MAIN ERROR] Could not parse connectedness_criterion: " << this->connectedness_criterion << std::endl;
+        this->WriteToLogFile("Could not parse connectedness_criterion: " + this->connectedness_criterion, Log::error);
         this->WriteToLogFile("Could not parse connectedness_criterion" , Log::error);
         this->WriteToLogFile("Accepted forms are Clog_x(n), Cn^x, or 0 where C and x are integers" , Log::error);
         return 1;
@@ -55,43 +54,39 @@ int MincutOnlyPreProcess::main() {
     
     if (current_connectedness_criterion == ConnectednessCriterion::Simple) {
         this->WriteToLogFile("Running with CC mode (mincut of each cluster has to be greater than 0)" , Log::info);
-        std::cerr << "[MAIN] Mode: Simple Connected Components (CC)" << std::endl;
     } else if (current_connectedness_criterion == ConnectednessCriterion::Logarithimic) {
         this->WriteToLogFile("Running with WCC mode (mincut of each cluster has to be greater than " + std::to_string(connectedness_criterion_c) + " times log base " + std::to_string(connectedness_criterion_x) + " of n" , Log::info);
         pre_computed_log = connectedness_criterion_c / std::log(connectedness_criterion_x);
-        std::cerr << "[MAIN] Mode: Well-Connected (logarithmic), pre_computed_log=" << pre_computed_log << std::endl;
+        this->WriteToLogFile("Mode: Well-Connected (logarithmic), pre_computed_log=" + std::to_string(pre_computed_log), Log::info);
     } else if (current_connectedness_criterion == ConnectednessCriterion::Exponential) {
         this->WriteToLogFile("Running with WCC mode (mincut of each cluster has to be greater than " + std::to_string(connectedness_criterion_c) + " times n to the power of " + std::to_string(connectedness_criterion_x), Log::info);
-        std::cerr << "[MAIN] Mode: Well-Connected (exponential)" << std::endl;
     } else {
         // should not possible to reach
-        std::cerr << "[MAIN ERROR] Unexpected connectedness criterion state" << std::endl;
+        this->WriteToLogFile("Unexpected connectedness criterion state", Log::error);
         exit(1);
     }
     
-    std::cerr << "\n[MAIN] ======== Loading Graph ========" << std::endl;
+    this->WriteToLogFile("======== Loading Graph ========", Log::info);
     this->WriteToLogFile("Read subgraph edgelist file", Log::info);
-    std::cerr << "[MAIN] Reading from: " << this->edgelist << std::endl;
+    this->WriteToLogFile("Reading from: " + this->edgelist, Log::info);
     
     std::unordered_map<long, long> original_to_new_id_unordered_map;
     /** SECTION Get Connected Components START **/
     std::vector<std::vector<long>> subgraph_edges_vector = MMapSubgraphLoader::LoadEdgelistMMap(this->edgelist, &original_to_new_id_unordered_map, false);
 
-    std::cerr << "[MAIN] Finished loading graph" << std::endl;
-    std::cerr << "[MAIN] Loaded " << subgraph_edges_vector.size() << " connected components" << std::endl;
-    std::cerr << "[MAIN] Total unique nodes: " << original_to_new_id_unordered_map.size() << std::endl;
+    this->WriteToLogFile("Finished loading graph", Log::info);
+    this->WriteToLogFile("Loaded " + std::to_string(subgraph_edges_vector.size()) + " connected components", Log::info);
+    this->WriteToLogFile("Total unique nodes: " + std::to_string(original_to_new_id_unordered_map.size()), Log::info);
 
     this->WriteToLogFile("Finished reading subgraph edgelist file", Log::info);
     
     // Validate that we actually got data
     if (subgraph_edges_vector.empty()) {
-        std::cerr << "[MAIN ERROR] No components loaded! Vector is empty!" << std::endl;
-        this->WriteToLogFile("ERROR: No components loaded from file", Log::error);
+        this->WriteToLogFile("ERROR: No components loaded! Vector is empty!", Log::error);
         return 1;
     }
     if (subgraph_edges_vector.size() == 1 && subgraph_edges_vector[0].size() == 1 && subgraph_edges_vector[0][0] == -1) {
-        std::cerr << "[MAIN ERROR] File loading failed (error marker detected)" << std::endl;
-        this->WriteToLogFile("ERROR: File loading returned error marker", Log::error);
+        this->WriteToLogFile("ERROR: File loading failed (error marker detected)", Log::error);
         return 1;
     }
     
@@ -99,25 +94,22 @@ int MincutOnlyPreProcess::main() {
     int iter_count = 0;
     /** SECTION Get Connected Components END **/
 
-    std::cerr << "\n[MAIN] ======== Populating Initial Work Queue ========" << std::endl;
-    std::cerr << "[MAIN] Adding " << subgraph_edges_vector.size() << " components to work queue" << std::endl;
+    this->WriteToLogFile("======== Populating Initial Work Queue ========", Log::info);
+    this->WriteToLogFile("Adding " + std::to_string(subgraph_edges_vector.size()) + " components to work queue", Log::info);
     
     // store the results into the queue that each thread pulls from
     for(size_t i = 0; i < subgraph_edges_vector.size(); i ++) {
-        if (i < 10 || i % 100 == 0 || i >= subgraph_edges_vector.size() - 10) {
-            std::cerr << "[MAIN] Adding component " << i << " (size: " << subgraph_edges_vector[i].size() << " values)" << std::endl;
-        }
         MincutOnlyPreProcess::to_be_mincut_clusters.push(subgraph_edges_vector[i]);
     }
     
-    std::cerr << "[MAIN] Initial queue populated with " << MincutOnlyPreProcess::to_be_mincut_clusters.size() << " clusters" << std::endl;
+    this->WriteToLogFile("Initial queue populated with " + std::to_string(MincutOnlyPreProcess::to_be_mincut_clusters.size()) + " clusters", Log::info);
     
-    std::cerr << "\n[MAIN] ======== Starting Iterative Processing ========" << std::endl;
+    this->WriteToLogFile("======== Starting Iterative Processing ========", Log::info);
     
     while (true) {
-        std::cerr << "\n[MAIN] ========================================" << std::endl;
-        std::cerr << "[MAIN] Iteration #" << iter_count << std::endl;
-        std::cerr << "[MAIN] ========================================" << std::endl;
+        this->WriteToLogFile("========================================", Log::debug);
+        this->WriteToLogFile("Iteration #" + std::to_string(iter_count), Log::debug);
+        this->WriteToLogFile("========================================", Log::debug);
         
         this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::debug);
         if(iter_count % 10 == 0) {
@@ -128,67 +120,63 @@ int MincutOnlyPreProcess::main() {
         /** SECTION MinCut Each Connected Component START **/
         before_mincut_number_of_clusters = MincutOnlyPreProcess::to_be_mincut_clusters.size();
         
-        std::cerr << "[MAIN] Clusters in work queue: " << before_mincut_number_of_clusters << std::endl;
-        std::cerr << "[MAIN] Completed clusters: " << MincutOnlyPreProcess::done_being_mincut_clusters.size() << std::endl;
+        this->WriteToLogFile("Clusters in work queue: " + std::to_string(before_mincut_number_of_clusters), Log::debug);
+        this->WriteToLogFile("Completed clusters: " + std::to_string(MincutOnlyPreProcess::done_being_mincut_clusters.size()), Log::debug);
         
         this->WriteToLogFile(std::to_string(before_mincut_number_of_clusters) + " [connected components / clusters] to be mincut", Log::debug);
         
         /* if a thread gets a cluster {-1}, then they know processing is done and they can stop working */
         if(before_mincut_number_of_clusters > 1) {
-            std::cerr << "[MAIN] Spawning " << this->num_processors << " worker threads" << std::endl;
+            this->WriteToLogFile("Spawning " + std::to_string(this->num_processors) + " worker threads", Log::debug);
             
             /* start the threads */
             for(int i = 0; i < this->num_processors; i ++) {
                 MincutOnlyPreProcess::to_be_mincut_clusters.push({-1});
-                std::cerr << "[MAIN] Added termination signal #" << (i+1) << " to queue" << std::endl;
             }
             
-            std::cerr << "[MAIN] Queue now has " << MincutOnlyPreProcess::to_be_mincut_clusters.size() 
-                     << " items (including " << this->num_processors << " termination signals)" << std::endl;
+            this->WriteToLogFile("Queue now has " + std::to_string(MincutOnlyPreProcess::to_be_mincut_clusters.size()) + 
+                     " items (including " + std::to_string(this->num_processors) + " termination signals)", Log::debug);
             
             std::vector<std::thread> thread_vector;
             for(int i = 0; i < this->num_processors; i ++) {
-                std::cerr << "[MAIN] Spawning worker thread #" << i << std::endl;
                 thread_vector.push_back(std::thread(MincutOnlyPreProcess::MinCutWorker, current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log));
                 // Notify the thread
                 to_be_mincut_condition_variable.notify_one();
             }
             
-            std::cerr << "[MAIN] All " << this->num_processors << " worker threads spawned" << std::endl;
-            std::cerr << "[MAIN] Waiting for workers to complete..." << std::endl;
+            this->WriteToLogFile("All " + std::to_string(this->num_processors) + " worker threads spawned", Log::debug);
+            this->WriteToLogFile("Waiting for workers to complete...", Log::debug);
             
             /* get the result back from threads */
             /* the results from each thread gets stored in to_be_clustered_clusters */
             for(size_t thread_index = 0; thread_index < thread_vector.size(); thread_index ++) {
-                std::cerr << "[MAIN] Joining worker thread #" << thread_index << "..." << std::endl;
                 thread_vector[thread_index].join();
-                std::cerr << "[MAIN] Worker thread #" << thread_index << " joined" << std::endl;
             }
             
-            std::cerr << "[MAIN] All worker threads completed" << std::endl;
+            this->WriteToLogFile("All worker threads completed", Log::debug);
         } else if (before_mincut_number_of_clusters == 1) {
-            std::cerr << "[MAIN] Only 1 cluster remaining, processing with single worker" << std::endl;
+            this->WriteToLogFile("Only 1 cluster remaining, processing with single worker", Log::debug);
             MincutOnlyPreProcess::to_be_mincut_clusters.push({-1});
             to_be_mincut_condition_variable.notify_one();
             MincutOnlyPreProcess::MinCutWorker(current_connectedness_criterion, connectedness_criterion_c, connectedness_criterion_x, pre_computed_log);
-            std::cerr << "[MAIN] Single worker completed" << std::endl;
+            this->WriteToLogFile("Single worker completed", Log::debug);
         } else {
-            std::cerr << "[MAIN] No clusters in queue, skipping worker spawn" << std::endl;
+            this->WriteToLogFile("No clusters in queue, skipping worker spawn", Log::debug);
         }
         
         int after_mincut_number_of_clusters = MincutOnlyPreProcess::to_be_mincut_clusters.size();
         
-        std::cerr << "[MAIN] After iteration: work queue has " << after_mincut_number_of_clusters << " clusters" << std::endl;
+        this->WriteToLogFile("After iteration: work queue has " + std::to_string(after_mincut_number_of_clusters) + " clusters", Log::debug);
         this->WriteToLogFile(std::to_string(after_mincut_number_of_clusters) + " [connected components / clusters] to be mincut after a round of mincuts", Log::debug);
         /** SECTION MinCut Each Connected Component END **/
 
         /** SECTION Check If All Clusters Are Well-Connected START **/
         if(after_mincut_number_of_clusters == 0) {
-            std::cerr << "\n[MAIN] ========================================" << std::endl;
-            std::cerr << "[MAIN] ALL CLUSTERS ARE WELL-CONNECTED!" << std::endl;
-            std::cerr << "[MAIN] ========================================" << std::endl;
-            std::cerr << "[MAIN] Total iterations: " << (iter_count + 1) << std::endl;
-            std::cerr << "[MAIN] Final cluster count: " << MincutOnlyPreProcess::done_being_mincut_clusters.size() << std::endl;
+            this->WriteToLogFile("========================================", Log::debug);
+            this->WriteToLogFile("ALL CLUSTERS ARE WELL-CONNECTED!", Log::debug);
+            this->WriteToLogFile("========================================", Log::debug);
+            this->WriteToLogFile("Total iterations: " + std::to_string(iter_count + 1), Log::debug);
+            this->WriteToLogFile("Final cluster count: " + std::to_string(MincutOnlyPreProcess::done_being_mincut_clusters.size()), Log::debug);
             
             this->WriteToLogFile("all clusters are (well) connected", Log::info);
             this->WriteToLogFile("Total number of iterations: " + std::to_string(iter_count + 1), Log::info);
@@ -197,24 +185,18 @@ int MincutOnlyPreProcess::main() {
         /** SECTION Check If All Clusters Are Well-Connected END **/
 
         iter_count ++;
-        
-        // if (iter_count > 10000) {
-        //     std::cerr << "[MAIN WARNING] Reached 10000 iterations, possible infinite loop!" << std::endl;
-        //     std::cerr << "[MAIN] Breaking out of loop..." << std::endl;
-        //     break;
-        // }
     }
 
-    std::cerr << "\n[MAIN] ======== Writing Output ========" << std::endl;
+    this->WriteToLogFile("======== Writing Output ========", Log::info);
     this->WriteToLogFile("Writing output to: " + this->output_file, Log::info);
-    std::cerr << "[MAIN] Output file: " << this->output_file << std::endl;
-    std::cerr << "[MAIN] Writing " << MincutOnlyPreProcess::done_being_mincut_clusters.size() << " clusters" << std::endl;
+    this->WriteToLogFile("Output file: " + this->output_file, Log::info);
+    this->WriteToLogFile("Writing " + std::to_string(MincutOnlyPreProcess::done_being_mincut_clusters.size()) + " clusters", Log::info);
     
     this->WriteClusterQueue(MincutOnlyPreProcess::done_being_mincut_clusters);
     
-    std::cerr << "\n========================================" << std::endl;
-    std::cerr << "[MAIN] MincutOnlyPreProcess completed successfully!" << std::endl;
-    std::cerr << "========================================\n" << std::endl;
+    this->WriteToLogFile("========================================", Log::info);
+    this->WriteToLogFile("MincutOnlyPreProcess completed successfully!", Log::info);
+    this->WriteToLogFile("========================================", Log::info);
     
     return 0;
 }
