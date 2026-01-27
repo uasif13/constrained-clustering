@@ -32,8 +32,11 @@ int update_cluster_id_array(long * cluster_ids, int cluster_size, int previous_c
 }
 
 long ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<long>>* cluster_queue, uint64_t* opCount, int my_rank, int nprocs) {
-    // std::ofstream clustering_output;
-    // clustering_output.open(this->output_file, std::ios_base::app);
+    this->WriteToLogFile("========================================", Log::debug, my_rank);
+    this->WriteToLogFile("Starting WriteClusterQueueMPI", Log::info, my_rank);
+    this->WriteToLogFile("Initial queue size: " + std::to_string(cluster_queue->size()), Log::info, my_rank);
+    this->WriteToLogFile("========================================", Log::debug, my_rank);
+    
     int current_cluster_id = 0;
     
     // Use heap allocation instead of VLAs
@@ -42,7 +45,7 @@ long ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<long>>* 
     long index_count = 0;
 
     // Write to individual cluster files
-    this->WriteToLogFile("final clusters:", Log::debug, my_rank);
+    this->WriteToLogFile("Processing local clusters for rank " + std::to_string(my_rank), Log::debug, my_rank);
 
     while(!cluster_queue->empty()) {
         std::vector<long> current_cluster = cluster_queue->front();
@@ -57,27 +60,49 @@ long ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<long>>* 
         current_cluster_id++;
     }
     
+    this->WriteToLogFile("Processed " + std::to_string(current_cluster_id) + " local clusters", Log::info, my_rank);
+    this->WriteToLogFile("Total nodes in local clusters: " + std::to_string(index_count), Log::info, my_rank);
+    
     // Write to aggregate cluster file
     std::vector<long> index_count_arr(nprocs);
     std::vector<long> cluster_displacements(nprocs);
     long node_cluster_id_agg_size;
 
-    this->WriteToLogFile("Write to MPI Output", Log::debug, my_rank);
+    this->WriteToLogFile("========================================", Log::debug, my_rank);
+    this->WriteToLogFile("Starting MPI aggregation across " + std::to_string(nprocs) + " ranks", Log::info, my_rank);
+    this->WriteToLogFile("========================================", Log::debug, my_rank);
     
     // Send index counts to ROOT
+    this->WriteToLogFile("Phase 1: Gathering node counts from all ranks", Log::debug, my_rank);
     if (my_rank == 0) {
+        this->WriteToLogFile("ROOT: Gathering index counts from all " + std::to_string(nprocs) + " ranks", Log::debug, my_rank);
         MPI_Gather(&index_count, 1, MPI_LONG, index_count_arr.data(), 1, MPI_LONG, 0, MPI_COMM_WORLD, my_rank, -1, 3, opCount);
+        
+        this->WriteToLogFile("ROOT: Received counts from all ranks", Log::debug, my_rank);
+        for (int i = 0; i < nprocs; i++) {
+            this->WriteToLogFile("  Rank " + std::to_string(i) + ": " + std::to_string(index_count_arr[i]) + " nodes", Log::debug, my_rank);
+        }
+        
         build_displacements_output_file(cluster_displacements.data(), index_count_arr.data(), nprocs);
         node_cluster_id_agg_size = cluster_displacements[nprocs-1] + index_count_arr[nprocs-1];
+        
+        this->WriteToLogFile("ROOT: Total aggregated size: " + std::to_string(node_cluster_id_agg_size) + " nodes", Log::info, my_rank);
     } else {
+        this->WriteToLogFile("Sending count (" + std::to_string(index_count) + ") to ROOT", Log::debug, my_rank);
         MPI_Gather(&index_count, 1, MPI_LONG, NULL, 0, MPI_LONG, 0, MPI_COMM_WORLD, my_rank, -1, 3, opCount);
     }
+    
+    this->WriteToLogFile("Waiting at barrier after count gathering", Log::debug, my_rank);
     MPI_Barrier(my_rank, -1, 5, opCount);
+    this->WriteToLogFile("Passed barrier, proceeding to data gathering", Log::debug, my_rank);
     
 
     // Send node_ids and cluster_ids to ROOT
+    this->WriteToLogFile("Phase 2: Gathering node IDs and cluster IDs", Log::debug, my_rank);
     if (my_rank == 0) {
-        this->WriteToLogFile("my_rank: " + to_string(my_rank) + " Write to cluster mpi file", Log::info, my_rank);
+        this->WriteToLogFile("ROOT: Preparing to write aggregated clusters to file", Log::info, my_rank);
+        this->WriteToLogFile("ROOT: Output file: " + this->output_file, Log::info, my_rank);
+        
         std::ofstream mpi_clustering_output;
         mpi_clustering_output.open(this->output_file);
         
@@ -85,20 +110,33 @@ long ConstrainedClustering::WriteClusterQueueMPI(std::queue<std::vector<long>>* 
         std::vector<long> node_id_arr_agg(node_cluster_id_agg_size);
         std::vector<long> cluster_id_arr_agg(node_cluster_id_agg_size);
         
+        this->WriteToLogFile("ROOT: Gathering node IDs from all ranks", Log::debug, my_rank);
         MPI_Gatherv(node_id_arr.data(), index_count, MPI_LONG, node_id_arr_agg.data(), index_count_arr.data(), cluster_displacements.data(), MPI_LONG, 0, MPI_COMM_WORLD, my_rank, -1, 4, opCount);
+        
+        this->WriteToLogFile("ROOT: Gathering cluster IDs from all ranks", Log::debug, my_rank);
         MPI_Gatherv(cluster_id_arr.data(), index_count, MPI_LONG, cluster_id_arr_agg.data(), index_count_arr.data(), cluster_displacements.data(), MPI_LONG, 0, MPI_COMM_WORLD, my_rank, -1, 4, opCount);
         
+        this->WriteToLogFile("ROOT: Updating cluster IDs for consistency across ranks", Log::debug, my_rank);
         update_cluster_id_array(cluster_id_arr_agg.data(), node_cluster_id_agg_size, 0, cluster_displacements.data(), nprocs);
         
+        this->WriteToLogFile("ROOT: Writing " + std::to_string(node_cluster_id_agg_size) + " node-cluster pairs to file", Log::info, my_rank);
         for (long i = 0; i < node_cluster_id_agg_size; i++) {
             mpi_clustering_output << node_id_arr_agg[i] << " " << cluster_id_arr_agg[i] << "\n";
         }
         mpi_clustering_output.close();
+        this->WriteToLogFile("ROOT: Successfully wrote output file", Log::info, my_rank);
     } else {
+        this->WriteToLogFile("Sending " + std::to_string(index_count) + " node IDs to ROOT", Log::debug, my_rank);
         MPI_Gatherv(node_id_arr.data(), index_count, MPI_LONG, NULL, NULL, NULL, MPI_LONG, 0, MPI_COMM_WORLD, my_rank, -1, 4, opCount);
+        
+        this->WriteToLogFile("Sending " + std::to_string(index_count) + " cluster IDs to ROOT", Log::debug, my_rank);
         MPI_Gatherv(cluster_id_arr.data(), index_count, MPI_LONG, NULL, NULL, NULL, MPI_LONG, 0, MPI_COMM_WORLD, my_rank, -1, 4, opCount);
     }
 
+    this->WriteToLogFile("========================================", Log::debug, my_rank);
+    this->WriteToLogFile("Completed WriteClusterQueueMPI", Log::info, my_rank);
+    this->WriteToLogFile("========================================", Log::debug, my_rank);
+    
     // Broadcast previous_cluster_id
     // MPI_Bcast(&previous_cluster_id, 1, MPI_LONG, 0, MPI_COMM_WORLD, my_rank, -1, 0, opCount);
     return -1;
