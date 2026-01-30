@@ -97,12 +97,6 @@ int MincutOnlyPreProcess::main() {
     int previous_done_being_clustered_size = 0;
     int previous_cluster_id = 0;
 
-    this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::debug);
-    if(iter_count % 10000 == 0) {
-        this->WriteToLogFile("Iteration number: " + std::to_string(iter_count), Log::info);
-        this->WriteToLogFile(std::to_string(MincutOnlyPreProcess::to_be_mincut_clusters.size()) + " [connected components / clusters] to be mincut", Log::info);
-    }
-
     /** SECTION MinCut Each Connected Component START **/
     this->WriteToLogFile(std::to_string(subgraph_edges_vector.size()) + " [connected components / clusters] to be mincut", Log::debug);
     this->WriteToLogFile("Processing " + std::to_string(subgraph_edges_vector.size()) + " components", Log::info);
