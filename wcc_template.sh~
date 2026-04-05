@@ -1,0 +1,86 @@
+#!/bin/bash
+
+#SBATCH --job-name=wcc_preprocess_shared_n_recursive
+
+#SBATCH --output=/scratch/bader/au249/constrained-clustering/wcc/preprocess/shared/recursive/%j/startjob_%x.%j.out
+
+#SBATCH --error=/scratch/bader/au249/constrained-clustering/wcc/preprocess/shared/recursive/%j/startjob_%x.%j.err
+
+#SBATCH --partition=general
+
+#SBATCH --qos=low
+
+#SBATCH --account=bader
+
+#SBATCH --nodes=1
+
+#SBATCH --ntasks-per-node=1
+
+#SBATCH --cpus-per-task=128
+
+#SBATCH --time=72:00:00
+
+#SBATCH --mem=500G
+
+#SBATCH --exclusive
+
+
+module load foss/2025a DMTCP/4.0.0
+export LD_LIBRARY_PATH_SAVED="/project/bader/au249/constrained-clustering/wcc/preprocess/shared/recursive/external_libs/lib64/libigraph.a:${LD_LIBRARY_PATH}"
+
+# Set OpenMP environment (to respect --num-processors)
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
+# Run the program
+PROJ_DIR="/scratch/bader/au249/constrained-clustering/wcc/preprocess/shared/recursive"
+CKPT_DIR="${PROJ_DIR}/checkpoints/${SLURM_JOB_ID}"
+mkdir -p ${CKPT_DIR}
+
+TRACK_FILE="${PROJ_DIR}/job_timeline_${SLURM_JOB_ID}.txt"
+NODE_FILE="${CKPT_DIR}/.node_info"
+CURRENT_NODE=$(hostname)
+
+# Add swap monitoring log file
+SWAP_LOG="${PROJ_DIR}/swap_monitor_${SLURM_JOB_ID}.log"
+
+echo "=== Job Timeline for Checkpoint ${SLURM_JOB_ID} ===" > ${TRACK_FILE}
+echo "Started: $(date '+%Y-%m-%d %H:%M:%S')" >> ${TRACK_FILE}
+echo "Job ID: ${SLURM_JOB_ID} (INITIAL)" >> ${TRACK_FILE}
+echo "Node: ${CURRENT_NODE}" >> ${TRACK_FILE}
+echo "LD_LIBRARY_PATH: ${LD_LIBRARY_PATH_SAVED}" >> ${TRACK_FILE}
+echo "" >> ${TRACK_FILE}
+
+echo "${CURRENT_NODE}" > ${NODE_FILE}
+
+cd ${CKPT_DIR}
+
+# Start swap monitoring in background
+# Logs swap every 60 seconds (adjust as needed)
+(
+    echo "=== Swap Memory Monitoring Log ===" > ${SWAP_LOG}
+    echo "Job ID: ${SLURM_JOB_ID}" >> ${SWAP_LOG}
+    echo "Started: $(date '+%Y-%m-%d %H:%M:%S')" >> ${SWAP_LOG}
+    echo "" >> ${SWAP_LOG}
+    
+    while true; do
+        echo "--- $(date '+%Y-%m-%d %H:%M:%S') ---" >> ${SWAP_LOG}
+        free -h | grep -E "(Swap|Mem)" >> ${SWAP_LOG}
+        echo "" >> ${SWAP_LOG}
+        sleep 60  # Log every 60 seconds
+    done
+) &
+
+# Save the monitoring PID so we can kill it later
+MONITOR_PID=$!
+
+dmtcp_coordinator --port 7779 --daemon --exit-on-last
+
+export DMTCP_COORD_HOST=$(hostname)
+export DMTCP_COORD_PORT=7779
+
+sleep 2
+
+dmtcp_launch --ckptdir ${CKPT_DIR} --interval 10 srun --export=ALL,LD_LIBRARY_PATH="${LD_LIBRARY_PATH_SAVED}" /project/bader/au249/wcc/preprocess/shared/recursive/constrained-clustering/constrained_clustering MincutOnlyPreprocess --edgelist /scratch/bader/au249/preprocess/$1/$2/$1_1_0.tsv --num-processors 128 --output-file /project/bader/au249/wcc/preprocess/shared/recursive/constrained-clustering/output/wcc_preprocess_shared_n_recursive_$1_$2_128.tsv --log-file /scratch/bader/au249/constrained-clustering/wcc/preprocess/shared/recursive/wcc_preprocess_shared_n_recursive_$1_$2_128.log --connectedness-criterion 1log_10\(n\) --log-level 1 
+
+# Kill the monitoring process when main job finishes
+kill $MONITOR_PID 2>/dev/null
